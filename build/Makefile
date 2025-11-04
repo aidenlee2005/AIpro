@@ -117,6 +117,19 @@ depend:
 .PHONY : depend
 
 #=============================================================================
+# Target rules for targets named layers_cuda
+
+# Build rule for target.
+layers_cuda: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 layers_cuda
+.PHONY : layers_cuda
+
+# fast build rule for target.
+layers_cuda/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layers_cuda.dir/build.make CMakeFiles/layers_cuda.dir/build
+.PHONY : layers_cuda/fast
+
+#=============================================================================
 # Target rules for targets named py_tensor
 
 # Build rule for target.
@@ -128,6 +141,30 @@ py_tensor: cmake_check_build_system
 py_tensor/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/py_tensor.dir/build.make CMakeFiles/py_tensor.dir/build
 .PHONY : py_tensor/fast
+
+layers.o: layers.cu.o
+.PHONY : layers.o
+
+# target to build an object file
+layers.cu.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layers_cuda.dir/build.make CMakeFiles/layers_cuda.dir/layers.cu.o
+.PHONY : layers.cu.o
+
+layers.i: layers.cu.i
+.PHONY : layers.i
+
+# target to preprocess a source file
+layers.cu.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layers_cuda.dir/build.make CMakeFiles/layers_cuda.dir/layers.cu.i
+.PHONY : layers.cu.i
+
+layers.s: layers.cu.s
+.PHONY : layers.s
+
+# target to generate assembly for a file
+layers.cu.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layers_cuda.dir/build.make CMakeFiles/layers_cuda.dir/layers.cu.s
+.PHONY : layers.cu.s
 
 pybind_tensor.o: pybind_tensor.cpp.o
 .PHONY : pybind_tensor.o
@@ -161,7 +198,11 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
+	@echo "... layers_cuda"
 	@echo "... py_tensor"
+	@echo "... layers.o"
+	@echo "... layers.i"
+	@echo "... layers.s"
 	@echo "... pybind_tensor.o"
 	@echo "... pybind_tensor.i"
 	@echo "... pybind_tensor.s"

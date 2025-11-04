@@ -2,6 +2,7 @@
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 #include "tensor.h"
+#include "layers.h"
 #include <vector>
 #include <string>
 #include <memory> // <- 新增
@@ -10,6 +11,195 @@ namespace py = pybind11;
 
 using TensorF = Tensor<float>;
 using TensorPtr = std::shared_ptr<TensorF>;
+ 
+// 根据输入推断输出的Tensor
+static TensorPtr make_tensor_like(const TensorPtr& src, const std::vector<int>& new_shape){
+    Device dev = src->is_gpu() ? Device::GPU : Device::CPU;
+    return std::make_shared<TensorF>(new_shape, dev);
+}
+
+static TensorPtr sigmoid_forward(const TensorPtr& input){
+    auto in_shape = input->get_shape();
+    TensorPtr output = make_tensor_like(input, in_shape);
+    int totalnum = 1;
+    for (auto i : in_shape){
+        totalnum *= i;
+    }
+    sigmoid_gpu(input->data(), output->data(), totalnum);
+    return output;
+}
+
+static TensorPtr sigmoid_backward(const TensorPtr& grad_output, const TensorPtr& output){
+    auto in_shape = output->get_shape();
+    TensorPtr grad_input = make_tensor_like(output, in_shape);
+    int totalnum = 1;
+    for (auto i : in_shape){
+        totalnum *= i;
+    }    
+    sigmoid_gpu_backward( grad_input->data(), grad_output->data(), output->data(), totalnum);
+    return grad_input;
+}
+
+static TensorPtr relu_forward(const TensorPtr& input){
+    auto in_shape = input->get_shape();
+    TensorPtr output = make_tensor_like(input, in_shape);
+    int totalnum = 1;
+    for (auto i : in_shape){
+        totalnum *= i;
+    }
+    relu_gpu(input->data(), output->data(), totalnum);
+    return output;
+}
+
+static TensorPtr relu_backward(const TensorPtr& grad_output, const TensorPtr& output){
+    auto in_shape = output->get_shape();
+    TensorPtr grad_input = make_tensor_like(output, in_shape);
+    int totalnum = 1;
+    for (auto i : in_shape){
+        totalnum *= i;
+    }
+    relu_gpu_backward(grad_input->data(), grad_output->data(), output->data(), totalnum);
+    return grad_input;
+}
+
+static TensorPtr fc_forward(const TensorPtr& input, const TensorPtr& weight, const TensorPtr& bias){
+    //output(b, o) = input(b, i) * weight(i, o)   
+    auto in_shape = input->get_shape();
+    int batch = in_shape[0];
+    int out_features = weight->get_shape()[1];
+    std::vector<int> out_shape = {batch, out_features};
+    TensorPtr output = make_tensor_like(input, out_shape);
+    //void forward_fc(float* input, float* output, float* weight, float* bias,
+    //    int batch_size, int out_features, int in_features){
+    forward_fc(input->data(), output->data(), weight->data(), bias->data(), batch, out_features, in_shape[1]);
+    return output;
+}
+
+static void fc_backward(const TensorPtr& grad_output, const TensorPtr& input, const TensorPtr& weight, const TensorPtr& bias,
+                        const TensorPtr& grad_input, const TensorPtr& grad_weight, const TensorPtr& grad_bias){
+    //void backward_fc(float* input, float* weight, float* bias,
+    // int batch_size, int out_features, int in_features,
+    // float* grad_input, float* grad_output, float* grad_weight, float* grad_bias)
+    int batch_size = input->get_shape()[0];
+    int out_features = weight->get_shape()[1];
+    int in_features = weight->get_shape()[0];
+    backward_fc(input->data(), weight->data(), bias->data(), batch_size, out_features, in_features,
+                grad_input->data(), grad_output->data(), grad_weight->data(), grad_bias->data());
+}
+
+static TensorPtr conv2d_forward(const TensorPtr& input, const TensorPtr& filter){
+    // output(batch_size, out_channels, height, width)
+    // filter(out_channels, in_channels, 3, 3)
+    // input(batch_size, in_channels, height, width)
+
+    int batch_size = input->get_shape()[0];
+    int out_channels = filter->get_shape()[0];
+    int in_channels = input->get_shape()[1];
+    int height = input->get_shape()[2];
+    int width = input->get_shape()[3];
+    std::vector<int> out_shape = {batch_size, out_channels, height, width};
+    TensorPtr output = make_tensor_like(input, out_shape);
+    // void forward_conv2d(float* input, float* output, float* filter,
+    //             int batch_size, int out_channels, int in_channels, int height, int width,
+    //             cudaStream_t stream){
+    forward_conv2d(input->data(), output->data(), filter->data(),
+                   batch_size, out_channels, in_channels, height, width, 0);
+    return output;
+}
+
+static void conv2d_backward(const TensorPtr& grad_output, const TensorPtr& input, const TensorPtr& filter,
+                            const TensorPtr& grad_input, const TensorPtr& grad_filter){
+    // void backward_conv2d(float* input, float* filter,
+    // int batch_size, int out_channels, int in_channels, int height, int width,
+    // float* grad_input, float* grad_output, float* grad_filter,
+    // cudaStream_t stream){
+    int batch_size = input->get_shape()[0];
+    int out_channels = filter->get_shape()[0];
+    int in_channels = input->get_shape()[1];
+    int height = input->get_shape()[2];
+    int width = input->get_shape()[3];   
+    backward_conv2d(input->data(), filter->data(),batch_size, out_channels, in_channels, height, width,
+                    grad_input->data(), grad_output->data(), grad_filter->data(), 0);
+}
+
+static TensorPtr max_pool2d_forward(const TensorPtr& input){
+    // void forward_maxpool(const float* input, float* output, float* mask,
+    // int batch_size, int in_channels, int in_h, int in_w,
+    // int out_h, int out_w, cudaStream_t stream){
+    int batch_size = input->get_shape()[0];
+    int in_channels = input->get_shape()[1];
+    int in_h = input->get_shape()[2];
+    int in_w = input->get_shape()[3];
+    int out_h = in_h / 2;
+    int out_w = in_w / 2;
+    std::vector<int> out_shape = {batch_size, in_channels, out_h, out_w};
+    TensorPtr output = make_tensor_like(input, out_shape);
+    TensorPtr mask = make_tensor_like(input, out_shape);
+    forward_maxpool(input->data(), output->data(), mask->data(),
+                    batch_size, in_channels, in_h, in_w, out_h, out_w, 0);
+    return output;
+}
+
+static TensorPtr max_pool2d_forward_mask(const TensorPtr& input){
+    int batch_size = input->get_shape()[0];
+    int in_channels = input->get_shape()[1];
+    int in_h = input->get_shape()[2];
+    int in_w = input->get_shape()[3];
+    int out_h = in_h / 2;
+    int out_w = in_w / 2;
+    std::vector<int> out_shape = {batch_size, in_channels, out_h, out_w};
+    TensorPtr output = make_tensor_like(input, out_shape);
+    TensorPtr mask = make_tensor_like(input, out_shape);
+    forward_maxpool(input->data(), output->data(), mask->data(),
+                    batch_size, in_channels, in_h, in_w, out_h, out_w, 0);
+    return mask;    
+}
+
+static void max_pool2d_backward(const TensorPtr& grad_output, const TensorPtr& mask, 
+                                    const TensorPtr& input, const TensorPtr& grad_input){
+    // void backward_maxpool(const float* grad_output, const float* mask, float* grad_input,
+    // int batch_size, int in_channels, int in_h, int in_w,
+    // int out_h, int out_w, cudaStream_t stream){                     
+    int batch_size = input->get_shape()[0];
+    int in_channels = input->get_shape()[1];
+    int in_h = input->get_shape()[2];
+    int in_w = input->get_shape()[3];
+    int out_h = in_h / 2;
+    int out_w = in_w / 2;
+    backward_maxpool(grad_output->data(), mask->data(), grad_input->data(),
+                     batch_size, in_channels, in_h, in_w, out_h, out_w, 0);
+}
+
+static TensorPtr softmax_forward(const TensorPtr& input){
+    // void forward_softmax(const float* input, float* output,
+    // int batch_size ,int num_classes, cudaStream_t stream){
+    int batch_size = input->get_shape()[0];
+    int num_classes = input->get_shape()[1];
+    TensorPtr output = make_tensor_like(input, input->get_shape());
+    forward_softmax(input->data(), output->data(), batch_size, num_classes, 0);
+    return output;
+}
+
+static float cross_entropy_forward(const TensorPtr& input, const TensorPtr& labels){
+    // void forward_cross_entropy(const float* input, const int* labels, float* loss,
+    //     int batch_size, int num_classes, cudaStream_t stream){
+
+    //input shape (batch_size, num_classes)
+    //labels shape (batch_size)
+    int batch_size = input->get_shape()[0];
+    int num_classes = input->get_shape()[1];
+    float loss = 0.0f;
+    forward_cross_entropy(input->data(), labels->data(), &loss, batch_size, num_classes, 0);
+    return loss;
+}
+
+static void cross_entropy_backward(const TensorPtr& input, const TensorPtr& labels, TensorPtr& grad_input){
+    // void backward_cross_entropy(const float* softmax_output, const float* labels,
+    // int batch_size, int num_classes, float* grad_output, cudaStream_t stream)
+    int batch_size = input->get_shape()[0];
+    int num_classes = input->get_shape()[1];
+    backward_cross_entropy(input->data(), labels->data(), batch_size, num_classes, grad_input->data(), 0);
+}
 
 PYBIND11_MODULE(py_tensor, m) {
     py::enum_<Device>(m, "Device")
@@ -63,6 +253,22 @@ PYBIND11_MODULE(py_tensor, m) {
             float* src = static_cast<float*>(info.ptr);
             t->copy_from_host(src);
             return t;
-        }, py::arg("array"), py::arg("device") = "cpu")
-        ;
+        }, py::arg("array"), py::arg("device") = "cpu");
+
+    m.def("relu_forward", &relu_forward, py::arg("input"));
+    m.def("relu_backward", &relu_backward, py::arg("output_grad"), py::arg("output"));
+    m.def("sigmoid_forward", &sigmoid_forward, py::arg("input"));
+    m.def("sigmoid_backward", &sigmoid_backward, py::arg("output_grad"), py::arg("output"));
+    m.def("fc_forward", &fc_forward, py::arg("input"), py::arg("weight"), py::arg("bias"));
+    m.def("fc_backward", &fc_backward, py::arg("output_grad"), py::arg("input"), py::arg("weight"), py::arg("bias"),
+          py::arg("input_grad"), py::arg("weight_grad"), py::arg("bias_grad"));
+    m.def("conv2d_forward", &conv2d_forward, py::arg("input"), py::arg("filter"));
+    m.def("conv2d_backward", &conv2d_backward, py::arg("output_grad"), py::arg("input"), py::arg("filter"),
+          py::arg("input_grad"), py::arg("filter_grad"));
+    m.def("max_pool2d_forward", &max_pool2d_forward, py::arg("input"));
+    m.def("max_pool2d_forward_mask", &max_pool2d_forward_mask, py::arg("input"));
+    m.def("max_pool2d_backward", &max_pool2d_backward, py::arg("output_grad"), py::arg("mask"), py::arg("input"), py::arg("input_grad"));
+    m.def("softmax_forward", &softmax_forward, py::arg("input"));
+    m.def("cross_entropy_forward", &cross_entropy_forward, py::arg("input"), py::arg("labels"));
+    m.def("cross_entropy_backward", &cross_entropy_backward, py::arg("input"), py::arg("labels"), py::arg("input_grad"));
 }

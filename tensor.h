@@ -72,7 +72,7 @@ public:
     Tensor(const Tensor&) = delete;
     Tensor& operator=(const Tensor&) = delete;
 
-    T* get_data(){
+    T* data(){
         if (device == Device::CPU){
             return h_data.get();
         }
@@ -104,7 +104,7 @@ public:
             return std::move(*this);
         }
         Tensor t(shape, Device::CPU);
-        cudaMemcpy(t.get_data(), d_data, size * sizeof(T), cudaMemcpyDeviceToHost);
+        cudaMemcpy(t.data(), d_data, size * sizeof(T), cudaMemcpyDeviceToHost);
         return std::move(t);
     }
 
@@ -113,7 +113,7 @@ public:
             return std::move(*this);
         }
         Tensor t(shape, Device::GPU);
-        cudaMemcpy(t.get_data(), h_data.get(), size * sizeof(T), cudaMemcpyHostToDevice);
+        cudaMemcpy(t.data(), h_data.get(), size * sizeof(T), cudaMemcpyHostToDevice);
         return std::move(t);
     }
 

@@ -1,0 +1,2 @@
+/usr/bin/ar qc liblayers_cuda.a CMakeFiles/layers_cuda.dir/layers.cu.o
+/usr/bin/ranlib liblayers_cuda.a

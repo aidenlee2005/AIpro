@@ -92,7 +92,13 @@ py_tensor_EXTERNAL_OBJECTS =
 
 py_tensor.cpython-312-x86_64-linux-gnu.so: CMakeFiles/py_tensor.dir/pybind_tensor.cpp.o
 py_tensor.cpython-312-x86_64-linux-gnu.so: CMakeFiles/py_tensor.dir/build.make
-py_tensor.cpython-312-x86_64-linux-gnu.so: /usr/local/cuda-12.8/targets/x86_64-linux/lib/libcudart.so
+py_tensor.cpython-312-x86_64-linux-gnu.so: liblayers_cuda.a
+py_tensor.cpython-312-x86_64-linux-gnu.so: /usr/local/cuda/lib64/libcudart.so
+py_tensor.cpython-312-x86_64-linux-gnu.so: /usr/local/cuda/lib64/libcurand.so
+py_tensor.cpython-312-x86_64-linux-gnu.so: /usr/local/cuda/lib64/libcufft.so
+py_tensor.cpython-312-x86_64-linux-gnu.so: /usr/local/cuda/lib64/libcusolver.so
+py_tensor.cpython-312-x86_64-linux-gnu.so: /usr/local/cuda/lib64/libcublas.so
+py_tensor.cpython-312-x86_64-linux-gnu.so: /usr/local/cuda/lib64/libcusparse.so
 py_tensor.cpython-312-x86_64-linux-gnu.so: CMakeFiles/py_tensor.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/root/autodl-tmp/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX shared module py_tensor.cpython-312-x86_64-linux-gnu.so"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/py_tensor.dir/link.txt --verbose=$(VERBOSE)

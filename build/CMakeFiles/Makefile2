@@ -63,6 +63,7 @@ CMAKE_BINARY_DIR = /root/autodl-tmp/build
 # Directory level rules for the build root directory
 
 # The main recursive "all" target.
+all: CMakeFiles/layers_cuda.dir/all
 all: CMakeFiles/py_tensor.dir/all
 .PHONY : all
 
@@ -71,22 +72,49 @@ preinstall:
 .PHONY : preinstall
 
 # The main recursive "clean" target.
+clean: CMakeFiles/layers_cuda.dir/clean
 clean: CMakeFiles/py_tensor.dir/clean
 .PHONY : clean
+
+#=============================================================================
+# Target rules for target CMakeFiles/layers_cuda.dir
+
+# All Build rule for target.
+CMakeFiles/layers_cuda.dir/all:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layers_cuda.dir/build.make CMakeFiles/layers_cuda.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layers_cuda.dir/build.make CMakeFiles/layers_cuda.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/root/autodl-tmp/build/CMakeFiles --progress-num=1,2 "Built target layers_cuda"
+.PHONY : CMakeFiles/layers_cuda.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/layers_cuda.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /root/autodl-tmp/build/CMakeFiles 2
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/layers_cuda.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /root/autodl-tmp/build/CMakeFiles 0
+.PHONY : CMakeFiles/layers_cuda.dir/rule
+
+# Convenience name for target.
+layers_cuda: CMakeFiles/layers_cuda.dir/rule
+.PHONY : layers_cuda
+
+# clean rule for target.
+CMakeFiles/layers_cuda.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layers_cuda.dir/build.make CMakeFiles/layers_cuda.dir/clean
+.PHONY : CMakeFiles/layers_cuda.dir/clean
 
 #=============================================================================
 # Target rules for target CMakeFiles/py_tensor.dir
 
 # All Build rule for target.
-CMakeFiles/py_tensor.dir/all:
+CMakeFiles/py_tensor.dir/all: CMakeFiles/layers_cuda.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/py_tensor.dir/build.make CMakeFiles/py_tensor.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/py_tensor.dir/build.make CMakeFiles/py_tensor.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/root/autodl-tmp/build/CMakeFiles --progress-num=1,2 "Built target py_tensor"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/root/autodl-tmp/build/CMakeFiles --progress-num=3,4 "Built target py_tensor"
 .PHONY : CMakeFiles/py_tensor.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/py_tensor.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /root/autodl-tmp/build/CMakeFiles 2
+	$(CMAKE_COMMAND) -E cmake_progress_start /root/autodl-tmp/build/CMakeFiles 4
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/py_tensor.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /root/autodl-tmp/build/CMakeFiles 0
 .PHONY : CMakeFiles/py_tensor.dir/rule

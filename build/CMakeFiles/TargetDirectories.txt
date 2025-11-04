@@ -1,3 +1,4 @@
+/root/autodl-tmp/build/CMakeFiles/layers_cuda.dir
 /root/autodl-tmp/build/CMakeFiles/py_tensor.dir
 /root/autodl-tmp/build/CMakeFiles/edit_cache.dir
 /root/autodl-tmp/build/CMakeFiles/rebuild_cache.dir
