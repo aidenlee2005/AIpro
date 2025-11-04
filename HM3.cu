@@ -18,7 +18,7 @@ nvcc HM3.cu -o [name] -lcublas -lcurand
 
 */
 
-std::vector<std::string> pythonoutput = run_python_split("python3 pytest.py");;
+std::vector<std::string> pythonoutput = run_python_split("python3 pytest.py");
 
 int main(int argc, char* argv[]){
     std::streambuf* coutbuf = nullptr;

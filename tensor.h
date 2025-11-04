@@ -3,8 +3,9 @@
 
 #include <iostream>
 #include <vector>
-#include <cuda.h>
+#include <cuda_runtime.h>
 #include <memory>
+#include <cstring> // 添加以支持 memcpy
 
 enum class Device{
     CPU,
@@ -114,6 +115,25 @@ public:
         Tensor t(shape, Device::GPU);
         cudaMemcpy(t.get_data(), h_data.get(), size * sizeof(T), cudaMemcpyHostToDevice);
         return std::move(t);
+    }
+
+    bool is_cpu() const { return device == Device::CPU; }
+    bool is_gpu() const { return device == Device::GPU; }
+
+    void copy_to_host(T* out) const {
+        if (device == Device::CPU) {
+            std::memcpy(out, h_data.get(), size * sizeof(T));
+        } else {
+            cudaMemcpy(out, d_data, size * sizeof(T), cudaMemcpyDeviceToHost);
+        }
+    }
+
+    void copy_from_host(const T* in) {
+        if (device == Device::CPU) {
+            std::memcpy(h_data.get(), in, size * sizeof(T));
+        } else {
+            cudaMemcpy(d_data, in, size * sizeof(T), cudaMemcpyHostToDevice);
+        }
     }
 
     void print(){
