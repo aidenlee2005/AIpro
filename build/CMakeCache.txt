@@ -374,7 +374,7 @@ PYBIND11_PYTHONLIBS_OVERWRITE:BOOL=ON
 PYBIND11_PYTHON_VERSION:STRING=
 
 //Path to a program.
-PYTHON_EXECUTABLE:FILEPATH=/root/miniconda3/bin/python
+PYTHON_EXECUTABLE:FILEPATH=/root/miniconda3/bin/python3
 
 //Path to a library.
 PYTHON_LIBRARY:FILEPATH=/root/miniconda3/lib/libpython3.12.so
@@ -648,9 +648,9 @@ CUDA_nvrtc_LIBRARY-ADVANCED:INTERNAL=1
 //Details about finding CUDAToolkit
 FIND_PACKAGE_MESSAGE_DETAILS_CUDAToolkit:INTERNAL=[/usr/local/cuda/include][/usr/local/cuda/lib64/libcudart.so][/usr/local/cuda/bin][v12.8.93()]
 //Details about finding PYTHON
-FIND_PACKAGE_MESSAGE_DETAILS_PYTHON:INTERNAL=/root/miniconda3/bin/python3.12.3
+FIND_PACKAGE_MESSAGE_DETAILS_PYTHON:INTERNAL=/root/miniconda3/bin/python33.12.3
 //Details about finding PythonInterp
-FIND_PACKAGE_MESSAGE_DETAILS_PythonInterp:INTERNAL=[/root/miniconda3/bin/python][v3.12.3(3.8)]
+FIND_PACKAGE_MESSAGE_DETAILS_PythonInterp:INTERNAL=[/root/miniconda3/bin/python3][v3.12.3(3.8)]
 //Details about finding Threads
 FIND_PACKAGE_MESSAGE_DETAILS_Threads:INTERNAL=[TRUE][v()]
 //Test HAS_FLTO_AUTO

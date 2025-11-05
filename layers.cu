@@ -36,7 +36,7 @@ __global__ void sigmoid_gpu_kernel(float* in, float* out, int size){
 
 __global__ void sigmoid_gpu_backward_kernel(float* in_grad, float* out_grad, float* out, int size){
     CUDA_KERNAL_LOOP(i, size){
-        float sig = 1 / (1 + exp(-out[i]));
+        float sig = out[i];
         in_grad[i] = sig * (1 - sig) * out_grad[i];
     }
 }
@@ -650,6 +650,13 @@ void forward_cross_entropy(const float* input, const float* labels, float* loss,
         //input shape (batch_size, num_classes)
         //labels shape (batch_size)
         //loss shape (1)
+
+        float* d_softmax = nullptr;
+        size_t total = (size_t)batch_size * num_classes;
+        cudaMalloc(&d_softmax, total * sizeof(float));
+
+        forward_softmax(input, d_softmax, batch_size, num_classes, stream);
+
         float* d_loss;
         float h_loss = 0.0f;
         cudaMalloc(&d_loss, sizeof(float));
@@ -659,13 +666,14 @@ void forward_cross_entropy(const float* input, const float* labels, float* loss,
         int blocks = (batch_size + threads - 1) / threads;
         size_t shared_mem = threads * sizeof(float);
 
-        loss_kernel<<<blocks, threads, shared_mem, stream>>>(input, labels, d_loss,
+        loss_kernel<<<blocks, threads, shared_mem, stream>>>(d_softmax, labels, d_loss,
             batch_size, num_classes);
         
         cudaMemcpyAsync(&h_loss, d_loss, sizeof(float), cudaMemcpyDeviceToHost, stream);
         cudaStreamSynchronize(stream);
         *loss = h_loss / batch_size;
         cudaFree(d_loss);
+        cudaFree(d_softmax);
     }
 
 __global__ void subtract_labels(float* grad_input, const float* labels, int batch_size, int num_classes){
@@ -684,7 +692,7 @@ __global__ void scale_grad(float* grad_input, int n, float scale){
 }
 
 
-void backward_cross_entropy(const float* softmax_output, const float* labels,
+void backward_cross_entropy(const float* input_logits, const float* labels,
     int batch_size, int num_classes, float* grad_output, cudaStream_t stream){
         //softmax_output shape (batch_size, num_classes)
         //labels shape (batch_size)
@@ -692,8 +700,8 @@ void backward_cross_entropy(const float* softmax_output, const float* labels,
         //grad_output = softmax_output
 
         //compute grad_output
-        cudaMemcpyAsync(grad_output, softmax_output, 
-            batch_size * num_classes * sizeof(float), cudaMemcpyDeviceToDevice, stream);
+        forward_softmax(input_logits, grad_output, batch_size, num_classes, stream);
+
         //grad_output(b, c) -= 1 if c == labels[b]
         int bs = 256;
         int gs = (batch_size + bs - 1) / bs;
