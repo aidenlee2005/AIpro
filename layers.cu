@@ -624,88 +624,99 @@ __inline__ __device__ float blockReduceSum(float val) {
     return buf[0];
 }
 
+// ---------------- Cross Entropy 修正 ----------------
+
+// loss_kernel: 采用 one-block-per-sample 的简单实现，避免不匹配的 block/thread 归约
 __global__ void loss_kernel(const float* input, const float* labels, float* loss,
     int batch_size, int num_classes){
+    int row = blockIdx.x;
+    if (row >= batch_size) return;
 
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    float local_loss = 0.0f;
-    if (idx < batch_size) {
-        int label = int(labels[idx]);
-        float prob = input[idx * num_classes + label];
-        prob = fmaxf(prob, 1e-12f);  // 防止 log(0)
-        local_loss = -logf(prob);
-    }
-
-    // block 内归约求和
-    float block_sum = blockReduceSum(local_loss);
-
-    // 仅由 block 内线程0 累加到全局 loss
+    // 只由线程0读取标签并计算该行的负对数似然，再原子加到全局 loss
     if (threadIdx.x == 0) {
-        atomicAdd(loss, block_sum);
+        int label = int(labels[row]);
+        float prob = input[row * num_classes + label];
+        prob = fmaxf(prob, 1e-12f);  // 防止 log(0)
+        float local_loss = -logf(prob);
+        atomicAdd(loss, local_loss);
     }
 }
 
+// forward_cross_entropy: 先复用 forward_softmax 写入临时 d_softmax，再调用 loss_kernel
 void forward_cross_entropy(const float* input, const float* labels, float* loss,
     int batch_size, int num_classes, cudaStream_t stream){
-        //input shape (batch_size, num_classes)
-        //labels shape (batch_size)
-        //loss shape (1)
+    // input: logits (batch_size, num_classes)
+    // labels: (batch_size)
+    // loss: pointer to single float (output)
 
-        float* d_softmax = nullptr;
-        size_t total = (size_t)batch_size * num_classes;
-        cudaMalloc(&d_softmax, total * sizeof(float));
+    float* d_softmax = nullptr;
+    size_t total = (size_t)batch_size * num_classes;
+    cudaMalloc(&d_softmax, total * sizeof(float));
 
-        forward_softmax(input, d_softmax, batch_size, num_classes, stream);
+    // logits -> softmax
+    forward_softmax(input, d_softmax, batch_size, num_classes, stream);
 
-        float* d_loss;
-        float h_loss = 0.0f;
-        cudaMalloc(&d_loss, sizeof(float));
-        cudaMemcpy(d_loss, &h_loss, sizeof(float), cudaMemcpyHostToDevice);
+    float h_zero = 0.0f;
+    float* d_loss = nullptr;
+    cudaMalloc(&d_loss, sizeof(float));
+    cudaMemcpyAsync(d_loss, &h_zero, sizeof(float), cudaMemcpyHostToDevice, stream);
 
-        int threads = 256;
-        int blocks = (batch_size + threads - 1) / threads;
-        size_t shared_mem = threads * sizeof(float);
+    // launch one block per sample (softmax_forward already uses this convention)
+    int threads = 256;
+    int blocks = batch_size;
+    size_t shared_mem = 0; // not used in this loss_kernel implementation
 
-        loss_kernel<<<blocks, threads, shared_mem, stream>>>(d_softmax, labels, d_loss,
-            batch_size, num_classes);
-        
-        cudaMemcpyAsync(&h_loss, d_loss, sizeof(float), cudaMemcpyDeviceToHost, stream);
-        cudaStreamSynchronize(stream);
-        *loss = h_loss / batch_size;
-        cudaFree(d_loss);
-        cudaFree(d_softmax);
-    }
+    loss_kernel<<<blocks, threads, shared_mem, stream>>>(d_softmax, labels, d_loss,
+        batch_size, num_classes);
 
+    float h_loss = 0.0f;
+    cudaMemcpyAsync(&h_loss, d_loss, sizeof(float), cudaMemcpyDeviceToHost, stream);
+    cudaStreamSynchronize(stream);
+    *loss = h_loss / batch_size;
+
+    cudaFree(d_loss);
+    cudaFree(d_softmax);
+}
+
+// subtract_labels: 每行一个 block，线程在列上循环，安全处理任意 num_classes
 __global__ void subtract_labels(float* grad_input, const float* labels, int batch_size, int num_classes){
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < batch_size) {
-        int label = int(labels[idx]);
-        grad_input[idx * num_classes + label] -= 1.0f;
+    int row = blockIdx.x;
+    if (row >= batch_size) return;
+    int tid = threadIdx.x;
+    int stride = blockDim.x;
+    int label = int(labels[row]);
+    // 每个线程处理多个 class 列
+    for (int c = tid; c < num_classes; c += stride){
+        if (c == label){
+            grad_input[row * num_classes + c] -= 1.0f;
+        }
     }
 }
 
+// scale_grad: 通过全局索引循环覆盖所有元素
 __global__ void scale_grad(float* grad_input, int n, float scale){
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < n){
-        grad_input[idx] *= scale;
+    int stride = blockDim.x * gridDim.x;
+    for (int i = idx; i < n; i += stride){
+        grad_input[i] *= scale;
     }
 }
 
-
+// backward_cross_entropy: 先写 softmax 到 grad_output，再做 subtract_labels 与 scale
 void backward_cross_entropy(const float* input_logits, const float* labels,
     int batch_size, int num_classes, float* grad_output, cudaStream_t stream){
-        //softmax_output shape (batch_size, num_classes)
-        //labels shape (batch_size)
-        //grad_output shape (batch_size, num_classes)
-        //grad_output = softmax_output
+    // write softmax(logits) into grad_output
+    forward_softmax(input_logits, grad_output, batch_size, num_classes, stream);
 
-        //compute grad_output
-        forward_softmax(input_logits, grad_output, batch_size, num_classes, stream);
+    // grad_output(b, c) -= 1 if c == labels[b]
+    int threads_per_block = (num_classes < 256) ? num_classes : 256;
+    if (threads_per_block < 32) threads_per_block = 32; // 保证至少一个warp
+    int blocks_labels = batch_size;
+    subtract_labels<<<blocks_labels, threads_per_block, 0, stream>>>(grad_output, labels, batch_size, num_classes);
 
-        //grad_output(b, c) -= 1 if c == labels[b]
-        int bs = 256;
-        int gs = (batch_size + bs - 1) / bs;
-        subtract_labels<<<gs, bs, 0, stream>>>(grad_output, labels, batch_size, num_classes);
-        //grad_output /= batch_size
-        scale_grad<<<gs, bs, 0, stream>>>(grad_output, batch_size * num_classes, 1.0f / batch_size);
-    }
+    // grad_output /= batch_size (对所有元素)
+    int total = batch_size * num_classes;
+    int bs = 256;
+    int gs = (total + bs - 1) / bs;
+    scale_grad<<<gs, bs, 0, stream>>>(grad_output, total, 1.0f / float(batch_size));
+}
