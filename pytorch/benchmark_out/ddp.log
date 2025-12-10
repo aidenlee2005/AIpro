@@ -1,0 +1,25 @@
+[Gloo] Rank [Gloo] Rank 0 is connected to 11 peer ranks.  is connected to Expected number of connected peer ranks is : 11 peer ranks. Expected number of connected peer ranks is : 1
+
+DDP start | world_size=2, batch=128, epochs=10
+[Epoch 1/10] loss=2.2042 time=2.17s throughput=23039.3 imgs/s (global)
+[Epoch 2/10] loss=1.7330 time=1.64s throughput=30499.5 imgs/s (global)
+[Epoch 3/10] loss=1.5186 time=1.56s throughput=31977.3 imgs/s (global)
+[Epoch 4/10] loss=1.4172 time=1.72s throughput=29145.4 imgs/s (global)
+[Epoch 5/10] loss=1.3147 time=1.46s throughput=34259.0 imgs/s (global)
+[Epoch 6/10] loss=1.2384 time=1.66s throughput=30060.9 imgs/s (global)
+[Epoch 7/10] loss=1.1724 time=1.55s throughput=32242.3 imgs/s (global)
+[Epoch 8/10] loss=1.1168 time=1.64s throughput=30571.6 imgs/s (global)
+[Epoch 9/10] loss=1.0834 time=1.63s throughput=30582.4 imgs/s (global)
+[Epoch 10/10] loss=1.0322 time=1.64s throughput=30513.4 imgs/s (global)
+Test accuracy: 61.13%
+Class 0: 75.40%
+Class 1: 73.40%
+Class 2: 35.40%
+Class 3: 25.00%
+Class 4: 66.50%
+Class 5: 55.00%
+Class 6: 70.20%
+Class 7: 67.90%
+Class 8: 68.90%
+Class 9: 73.60%
+Saved weights to ./pytorch/cifar_net_ddp.pth

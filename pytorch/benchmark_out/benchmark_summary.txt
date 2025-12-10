@@ -1,0 +1,8 @@
+Single GPU:
+  epochs: 10, acc: 63.16
+  avg_epoch_time: 2.5230s
+  avg_throughput: 19859.8 imgs/s
+DDP (multi-GPU):
+  epochs: 10, acc: 61.13
+  avg_epoch_time: 1.6670s
+  avg_throughput: 30289.1 imgs/s
