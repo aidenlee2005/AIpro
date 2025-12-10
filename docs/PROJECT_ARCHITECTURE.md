@@ -15,7 +15,11 @@
 
 ## 2. 文件结构与功能说明
 
-### 2.1 后端核心 (C++/CUDA)
+项目经过重构，采用了模块化的目录结构，清晰分离了后端核心、前端框架、示例和测试代码。
+
+### 2.1 `csrc/` - C++/CUDA 后端核心
+
+此目录存放所有底层高性能实现代码。
 
 | 文件名 | 功能描述 | 核心函数/类 |
 | :--- | :--- | :--- |
@@ -25,15 +29,41 @@
 | **`layers.h`** | **C++ 接口声明**。声明 `layers.cu` 中暴露给 C++ 的函数。 | `TensorStrides` (结构体): 用于广播索引 |
 | **`pybind_tensor.cpp`** | **Python 绑定**。使用 Pybind11 封装 C++ Tensor 和函数，处理广播步长计算。 | `py_tensor` (模块)<br>`compute_broadcast_strides`: 计算广播后的虚拟步长<br>`make_tensor_like`: 创建同型 Tensor |
 
-### 2.2 前端核心 (Python)
+### 2.2 `framework/` - Python 前端框架
+
+此目录存放构建计算图和自动微分引擎的 Python 代码。
 
 | 文件名 | 功能描述 | 核心函数/类 |
 | :--- | :--- | :--- |
-| **`operators_hm6.py`** | **算子与图节点**。定义了 Python 端的 `Tensor` 类（继承自 `Value`）和各种算子 (`Op`)。 | `Tensor` (类): 包装 C++ Tensor 对象<br>`EWiseAdd`, `MatMul`, `Conv2D`: 具体算子<br>`compute`: 调用 C++ 后端<br>`gradient`: 定义反向传播逻辑 |
-| **`optimizer_hm6.py`** | **模型与优化器**。定义了神经网络层和优化器。 | `Module`, `Parameter`: 模型基类<br>`Linear`, `Conv2d`: 网络层<br>`SGD`, `Adam`: 优化器 (调用 C++ `*_step`) |
-| **`autodiff_hm6.py`** | **自动微分**。实现了反向模式自动微分引擎。 | `compute_gradient_of_variables`: 计算梯度 |
-| **`basic_operator_hm6.py`** | **基础抽象**。定义了计算图的基本节点类型。 | `Value`: 计算图节点基类<br>`Op`: 算子基类 |
-| **`train_cifar10_custom.py`** | **用户脚本**。CIFAR-10 训练流程。 | `train()`: 训练循环 |
+| **`operators.py`** | **算子与图节点**。定义了 Python 端的 `Tensor` 类（继承自 `Value`）和各种算子 (`Op`)。 | `Tensor` (类): 包装 C++ Tensor 对象<br>`EWiseAdd`, `MatMul`, `Conv2D`: 具体算子<br>`compute`: 调用 C++ 后端<br>`gradient`: 定义反向传播逻辑 |
+| **`optimizer.py`** | **模型与优化器**。定义了神经网络层和优化器。 | `Module`, `Parameter`: 模型基类<br>`Linear`, `Conv2d`: 网络层<br>`SGD`, `Adam`: 优化器 (调用 C++ `*_step`) |
+| **`autodiff.py`** | **自动微分**。实现了反向模式自动微分引擎。 | `compute_gradient_of_variables`: 计算梯度 |
+| **`basic_operator.py`** | **基础抽象**。定义了计算图的基本节点类型。 | `Value`: 计算图节点基类<br>`Op`: 算子基类 |
+| **`tensor.py`** | **自动微分 Tensor**。扩展了基础 Tensor，支持自动微分。 | `TensorFull`: 支持 `.backward()` 的 Tensor |
+| **`device.py`** | **设备抽象**。 | `Device`, `cpu`, `gpu` |
+| **`utils.py`** | **工具函数**。 | `rand`, `one_hot` 等 |
+
+### 2.3 `examples/` - 示例脚本
+
+| 文件名 | 功能描述 |
+| :--- | :--- |
+| **`train_cifar10_custom.py`** | **CIFAR-10 训练**。演示如何使用框架搭建 CNN 并训练 CIFAR-10 数据集。 |
+| **`mnist_read.py`** | **MNIST 读取**。辅助脚本，用于读取 MNIST 数据。 |
+
+### 2.4 `tests/` - 测试代码
+
+| 文件名 | 功能描述 |
+| :--- | :--- |
+| **`pybind_opTest.py`** | **算子单元测试**。测试各个 C++ 算子的正确性（对比 PyTorch/Numpy）。 |
+| **`pybind_basisTest.py`** | **基础功能测试**。测试 Tensor 创建、打印、内存管理等。 |
+| **`test_cnn_custom.py`** | **网络集成测试**。测试完整 CNN 网络的构建和运行。 |
+
+### 2.5 `docs/` - 文档
+
+| 文件名 | 功能描述 |
+| :--- | :--- |
+| **`PROJECT_ARCHITECTURE.md`** | **架构文档**。即本文档。 |
+| **`更新日志.md`** | **变更记录**。记录项目开发过程中的重要变更。 |
 
 ---
 
@@ -53,7 +83,7 @@ class Tensor {
 ```
 *   **内存管理**: 构造时通过 `MemoryPool::instance().allocate()` 获取显存，析构时通过 `deallocate()` 归还。
 
-### 3.2 Tensor (Python 端 - `operators_hm6.py`)
+### 3.2 Tensor (Python 端 - `operators.py`)
 这是用户操作的对象，它是计算图中的一个节点 (`Value`)。
 ```python
 class Tensor(Value):
@@ -92,7 +122,7 @@ class Tensor(Value):
 ### 4.2 反向传播 (Backward Pass)
 
 1.  **触发**: 用户调用 `loss.backward()`。
-2.  **拓扑排序**: `autodiff_hm6.py` 对计算图进行逆拓扑排序。
+2.  **拓扑排序**: `autodiff.py` 对计算图进行逆拓扑排序。
 3.  **梯度计算**:
     *   遍历节点，调用 `node.op.gradient(out_grad, node)`。
     *   例如 `EWiseAdd` 的梯度是 `(out_grad, out_grad)`。

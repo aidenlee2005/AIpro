@@ -2,12 +2,12 @@ import numpy as np
 import sys
 import os
 
-# Add current directory to path
-sys.path.append(os.getcwd())
+# Add framework directory to path
+sys.path.append(os.path.join(os.path.dirname(__file__), "../framework"))
 
-from tensor_hm6 import TensorFull as Tensor
-import optimizer_hm6 as nn
-import operators_hm6 as F
+from tensor import TensorFull as Tensor
+import optimizer as nn
+import operators as F
 
 def test_cnn_forward_backward():
     print("Testing CNN Forward and Backward...")

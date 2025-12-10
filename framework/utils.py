@@ -5,8 +5,8 @@
 """
 
 import math
-from device_hm6 import cpu
-from operators_hm6 import Tensor
+from device import cpu
+from operators import Tensor
 
 def rand(*shape, low=0.0, high=1.0, device=None, dtype="float32", requires_grad=False):
     """Generate random numbers uniform between low and high"""
