@@ -96,10 +96,6 @@ public:
                 MemoryPool::instance().deallocate(d_data, size * sizeof(T));
         }
     }
-        else if (device == Device::CPU){
-            h_data.reset();
-        }
-    }
 
     Tensor cpu(){
         if (device == Device::CPU){

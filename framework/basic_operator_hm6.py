@@ -7,7 +7,7 @@ import numpy as np
 from typing import List, Optional, Tuple, Union
 
 import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "build"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../build"))
 
 import py_tensor as py
 from py_tensor import Tensor as MyTensor

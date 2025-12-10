@@ -4,8 +4,8 @@ import sys
 import os
 import time
 
-# Add current directory to path
-sys.path.append(os.getcwd())
+# Add framework directory to path
+sys.path.append(os.path.join(os.path.dirname(__file__), "../framework"))
 
 from tensor_hm6 import TensorFull as Tensor
 import optimizer_hm6 as nn
@@ -71,7 +71,7 @@ def get_batch(X, Y, batch_size, device="gpu"):
 
 def train():
     print("Loading CIFAR-10 data...")
-    data_dir = "data/cifar-10-batches-py"
+    data_dir = os.path.join(os.path.dirname(__file__), "../data/cifar-10-batches-py")
     X_train, Y_train, X_test, Y_test = load_cifar10(data_dir)
     
     print(f"Train data: {X_train.shape}, {Y_train.shape}")

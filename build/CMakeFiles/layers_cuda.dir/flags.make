@@ -4,7 +4,7 @@
 # compile CUDA with /usr/local/cuda/bin/nvcc
 CUDA_DEFINES = 
 
-CUDA_INCLUDES = -I/root/autodl-tmp -isystem=/usr/local/cuda/include
+CUDA_INCLUDES = -I/root/autodl-tmp/csrc -isystem=/usr/local/cuda/include
 
 CUDA_FLAGS =  --generate-code=arch=compute_52,code=[compute_52,sm_52] -Xcompiler=-fPIC -Xcompiler=-fPIC -std=c++14
 

@@ -1,5 +1,5 @@
 import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "build"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../build"))
 
 import py_tensor as py
 from py_tensor import Tensor
@@ -10,7 +10,7 @@ import matplotlib
 matplotlib.use('Agg')  # headless 环境使用非交互后端，确保可以保存图片
 import matplotlib.pyplot as plt
 
-def load_mnist_via_torch(root="data", train=True, download=True):
+def load_mnist_via_torch(root="../data", train=True, download=True):
     """
     返回 (images, labels)：
       images: np.ndarray, dtype=float32, shape (N, 1, 28, 28), 值在 [0,1]

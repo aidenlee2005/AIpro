@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/root/autodl-tmp/pybind_tensor.cpp" "CMakeFiles/py_tensor.dir/pybind_tensor.cpp.o" "gcc" "CMakeFiles/py_tensor.dir/pybind_tensor.cpp.o.d"
+  "/root/autodl-tmp/csrc/pybind_tensor.cpp" "CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o" "gcc" "CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o.d"
   )
 
 # Targets to which this target links.

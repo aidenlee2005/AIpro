@@ -69,28 +69,28 @@ include CMakeFiles/layers_cuda.dir/progress.make
 # Include the compile flags for this target's objects.
 include CMakeFiles/layers_cuda.dir/flags.make
 
-CMakeFiles/layers_cuda.dir/layers.cu.o: CMakeFiles/layers_cuda.dir/flags.make
-CMakeFiles/layers_cuda.dir/layers.cu.o: ../layers.cu
-CMakeFiles/layers_cuda.dir/layers.cu.o: CMakeFiles/layers_cuda.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/root/autodl-tmp/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CUDA object CMakeFiles/layers_cuda.dir/layers.cu.o"
-	/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler $(CUDA_DEFINES) $(CUDA_INCLUDES) $(CUDA_FLAGS) -MD -MT CMakeFiles/layers_cuda.dir/layers.cu.o -MF CMakeFiles/layers_cuda.dir/layers.cu.o.d -x cu -c /root/autodl-tmp/layers.cu -o CMakeFiles/layers_cuda.dir/layers.cu.o
+CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: CMakeFiles/layers_cuda.dir/flags.make
+CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu
+CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: CMakeFiles/layers_cuda.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/root/autodl-tmp/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CUDA object CMakeFiles/layers_cuda.dir/csrc/layers.cu.o"
+	/usr/local/cuda/bin/nvcc -forward-unknown-to-host-compiler $(CUDA_DEFINES) $(CUDA_INCLUDES) $(CUDA_FLAGS) -MD -MT CMakeFiles/layers_cuda.dir/csrc/layers.cu.o -MF CMakeFiles/layers_cuda.dir/csrc/layers.cu.o.d -x cu -c /root/autodl-tmp/csrc/layers.cu -o CMakeFiles/layers_cuda.dir/csrc/layers.cu.o
 
-CMakeFiles/layers_cuda.dir/layers.cu.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CUDA source to CMakeFiles/layers_cuda.dir/layers.cu.i"
+CMakeFiles/layers_cuda.dir/csrc/layers.cu.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CUDA source to CMakeFiles/layers_cuda.dir/csrc/layers.cu.i"
 	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_CUDA_CREATE_PREPROCESSED_SOURCE
 
-CMakeFiles/layers_cuda.dir/layers.cu.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CUDA source to assembly CMakeFiles/layers_cuda.dir/layers.cu.s"
+CMakeFiles/layers_cuda.dir/csrc/layers.cu.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CUDA source to assembly CMakeFiles/layers_cuda.dir/csrc/layers.cu.s"
 	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_CUDA_CREATE_ASSEMBLY_SOURCE
 
 # Object files for target layers_cuda
 layers_cuda_OBJECTS = \
-"CMakeFiles/layers_cuda.dir/layers.cu.o"
+"CMakeFiles/layers_cuda.dir/csrc/layers.cu.o"
 
 # External object files for target layers_cuda
 layers_cuda_EXTERNAL_OBJECTS =
 
-liblayers_cuda.a: CMakeFiles/layers_cuda.dir/layers.cu.o
+liblayers_cuda.a: CMakeFiles/layers_cuda.dir/csrc/layers.cu.o
 liblayers_cuda.a: CMakeFiles/layers_cuda.dir/build.make
 liblayers_cuda.a: CMakeFiles/layers_cuda.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/root/autodl-tmp/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking CUDA static library liblayers_cuda.a"

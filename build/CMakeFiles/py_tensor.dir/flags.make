@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = -Dpy_tensor_EXPORTS
 
-CXX_INCLUDES = -I/root/autodl-tmp -isystem /usr/local/cuda/include -isystem /root/miniconda3/lib/python3.12/site-packages/pybind11/include -isystem /root/miniconda3/include/python3.12
+CXX_INCLUDES = -I/root/autodl-tmp/csrc -isystem /usr/local/cuda/include -isystem /root/miniconda3/lib/python3.12/site-packages/pybind11/include -isystem /root/miniconda3/include/python3.12
 
 CXX_FLAGS = -fPIC -fvisibility=hidden -flto=auto -fno-fat-lto-objects -std=gnu++14
 

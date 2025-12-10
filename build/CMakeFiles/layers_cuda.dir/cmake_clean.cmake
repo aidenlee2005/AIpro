@@ -1,6 +1,6 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/layers_cuda.dir/layers.cu.o"
-  "CMakeFiles/layers_cuda.dir/layers.cu.o.d"
+  "CMakeFiles/layers_cuda.dir/csrc/layers.cu.o"
+  "CMakeFiles/layers_cuda.dir/csrc/layers.cu.o.d"
   "liblayers_cuda.a"
   "liblayers_cuda.pdb"
 )

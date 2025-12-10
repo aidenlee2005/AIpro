@@ -69,28 +69,28 @@ include CMakeFiles/py_tensor.dir/progress.make
 # Include the compile flags for this target's objects.
 include CMakeFiles/py_tensor.dir/flags.make
 
-CMakeFiles/py_tensor.dir/pybind_tensor.cpp.o: CMakeFiles/py_tensor.dir/flags.make
-CMakeFiles/py_tensor.dir/pybind_tensor.cpp.o: ../pybind_tensor.cpp
-CMakeFiles/py_tensor.dir/pybind_tensor.cpp.o: CMakeFiles/py_tensor.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/root/autodl-tmp/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/py_tensor.dir/pybind_tensor.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/py_tensor.dir/pybind_tensor.cpp.o -MF CMakeFiles/py_tensor.dir/pybind_tensor.cpp.o.d -o CMakeFiles/py_tensor.dir/pybind_tensor.cpp.o -c /root/autodl-tmp/pybind_tensor.cpp
+CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: CMakeFiles/py_tensor.dir/flags.make
+CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp
+CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: CMakeFiles/py_tensor.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/root/autodl-tmp/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o -MF CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o.d -o CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o -c /root/autodl-tmp/csrc/pybind_tensor.cpp
 
-CMakeFiles/py_tensor.dir/pybind_tensor.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/py_tensor.dir/pybind_tensor.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /root/autodl-tmp/pybind_tensor.cpp > CMakeFiles/py_tensor.dir/pybind_tensor.cpp.i
+CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /root/autodl-tmp/csrc/pybind_tensor.cpp > CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.i
 
-CMakeFiles/py_tensor.dir/pybind_tensor.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/py_tensor.dir/pybind_tensor.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /root/autodl-tmp/pybind_tensor.cpp -o CMakeFiles/py_tensor.dir/pybind_tensor.cpp.s
+CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /root/autodl-tmp/csrc/pybind_tensor.cpp -o CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.s
 
 # Object files for target py_tensor
 py_tensor_OBJECTS = \
-"CMakeFiles/py_tensor.dir/pybind_tensor.cpp.o"
+"CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o"
 
 # External object files for target py_tensor
 py_tensor_EXTERNAL_OBJECTS =
 
-py_tensor.cpython-312-x86_64-linux-gnu.so: CMakeFiles/py_tensor.dir/pybind_tensor.cpp.o
+py_tensor.cpython-312-x86_64-linux-gnu.so: CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o
 py_tensor.cpython-312-x86_64-linux-gnu.so: CMakeFiles/py_tensor.dir/build.make
 py_tensor.cpython-312-x86_64-linux-gnu.so: liblayers_cuda.a
 py_tensor.cpython-312-x86_64-linux-gnu.so: /usr/local/cuda/lib64/libcudart.so

@@ -142,53 +142,53 @@ py_tensor/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/py_tensor.dir/build.make CMakeFiles/py_tensor.dir/build
 .PHONY : py_tensor/fast
 
-layers.o: layers.cu.o
-.PHONY : layers.o
+csrc/layers.o: csrc/layers.cu.o
+.PHONY : csrc/layers.o
 
 # target to build an object file
-layers.cu.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/layers_cuda.dir/build.make CMakeFiles/layers_cuda.dir/layers.cu.o
-.PHONY : layers.cu.o
+csrc/layers.cu.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layers_cuda.dir/build.make CMakeFiles/layers_cuda.dir/csrc/layers.cu.o
+.PHONY : csrc/layers.cu.o
 
-layers.i: layers.cu.i
-.PHONY : layers.i
+csrc/layers.i: csrc/layers.cu.i
+.PHONY : csrc/layers.i
 
 # target to preprocess a source file
-layers.cu.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/layers_cuda.dir/build.make CMakeFiles/layers_cuda.dir/layers.cu.i
-.PHONY : layers.cu.i
+csrc/layers.cu.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layers_cuda.dir/build.make CMakeFiles/layers_cuda.dir/csrc/layers.cu.i
+.PHONY : csrc/layers.cu.i
 
-layers.s: layers.cu.s
-.PHONY : layers.s
+csrc/layers.s: csrc/layers.cu.s
+.PHONY : csrc/layers.s
 
 # target to generate assembly for a file
-layers.cu.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/layers_cuda.dir/build.make CMakeFiles/layers_cuda.dir/layers.cu.s
-.PHONY : layers.cu.s
+csrc/layers.cu.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/layers_cuda.dir/build.make CMakeFiles/layers_cuda.dir/csrc/layers.cu.s
+.PHONY : csrc/layers.cu.s
 
-pybind_tensor.o: pybind_tensor.cpp.o
-.PHONY : pybind_tensor.o
+csrc/pybind_tensor.o: csrc/pybind_tensor.cpp.o
+.PHONY : csrc/pybind_tensor.o
 
 # target to build an object file
-pybind_tensor.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/py_tensor.dir/build.make CMakeFiles/py_tensor.dir/pybind_tensor.cpp.o
-.PHONY : pybind_tensor.cpp.o
+csrc/pybind_tensor.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/py_tensor.dir/build.make CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o
+.PHONY : csrc/pybind_tensor.cpp.o
 
-pybind_tensor.i: pybind_tensor.cpp.i
-.PHONY : pybind_tensor.i
+csrc/pybind_tensor.i: csrc/pybind_tensor.cpp.i
+.PHONY : csrc/pybind_tensor.i
 
 # target to preprocess a source file
-pybind_tensor.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/py_tensor.dir/build.make CMakeFiles/py_tensor.dir/pybind_tensor.cpp.i
-.PHONY : pybind_tensor.cpp.i
+csrc/pybind_tensor.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/py_tensor.dir/build.make CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.i
+.PHONY : csrc/pybind_tensor.cpp.i
 
-pybind_tensor.s: pybind_tensor.cpp.s
-.PHONY : pybind_tensor.s
+csrc/pybind_tensor.s: csrc/pybind_tensor.cpp.s
+.PHONY : csrc/pybind_tensor.s
 
 # target to generate assembly for a file
-pybind_tensor.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/py_tensor.dir/build.make CMakeFiles/py_tensor.dir/pybind_tensor.cpp.s
-.PHONY : pybind_tensor.cpp.s
+csrc/pybind_tensor.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/py_tensor.dir/build.make CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.s
+.PHONY : csrc/pybind_tensor.cpp.s
 
 # Help Target
 help:
@@ -200,12 +200,12 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... layers_cuda"
 	@echo "... py_tensor"
-	@echo "... layers.o"
-	@echo "... layers.i"
-	@echo "... layers.s"
-	@echo "... pybind_tensor.o"
-	@echo "... pybind_tensor.i"
-	@echo "... pybind_tensor.s"
+	@echo "... csrc/layers.o"
+	@echo "... csrc/layers.i"
+	@echo "... csrc/layers.s"
+	@echo "... csrc/pybind_tensor.o"
+	@echo "... csrc/pybind_tensor.i"
+	@echo "... csrc/pybind_tensor.s"
 .PHONY : help
 
 

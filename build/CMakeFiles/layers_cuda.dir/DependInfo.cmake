@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/root/autodl-tmp/layers.cu" "CMakeFiles/layers_cuda.dir/layers.cu.o" "gcc" "CMakeFiles/layers_cuda.dir/layers.cu.o.d"
+  "/root/autodl-tmp/csrc/layers.cu" "CMakeFiles/layers_cuda.dir/csrc/layers.cu.o" "gcc" "CMakeFiles/layers_cuda.dir/csrc/layers.cu.o.d"
   )
 
 # Targets to which this target links.

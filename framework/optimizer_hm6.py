@@ -2,7 +2,7 @@ import numpy as np
 from tensor_hm6 import TensorFull
 from operators_hm6 import Tensor
 import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "build"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../build"))
 import py_tensor
 
 class Parameter(TensorFull):
