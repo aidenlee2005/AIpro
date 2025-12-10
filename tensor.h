@@ -37,7 +37,6 @@ public:
             h_data = std::make_unique<T[]>(size);
         }
         else{
-            // cudaMalloc(&d_data, size * sizeof(T));
             d_data = static_cast<T*>(MemoryPool::instance().allocate(size * sizeof(T)));
         }
     }
@@ -56,7 +55,6 @@ public:
     Tensor& operator=(Tensor&& other) noexcept {  //移动赋值运算符
         if (this != &other) {
             if (device == Device::GPU && d_data != nullptr) {
-                // cudaFree(d_data);
                 MemoryPool::instance().deallocate(d_data, size * sizeof(T));
             }
             shape = std::move(other.shape);
@@ -95,9 +93,9 @@ public:
     ~Tensor(){
         if (device == Device::GPU){
             if (d_data != nullptr)
-                // cudaFree(d_data);
                 MemoryPool::instance().deallocate(d_data, size * sizeof(T));
         }
+    }
         else if (device == Device::CPU){
             h_data.reset();
         }

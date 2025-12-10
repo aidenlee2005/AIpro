@@ -12,8 +12,8 @@
 #include <thrust/sequence.h>
 #include <thrust/gather.h>
 
-#ifndef CUDA_KERNAL_LOOP
-#define CUDA_KERNAL_LOOP(i,n)\
+#ifndef CUDA_KERNEL_LOOP
+#define CUDA_KERNEL_LOOP(i,n)\
     for(int i=blockIdx.x*blockDim.x+threadIdx.x;i<n;i+=blockDim.x*gridDim.x)
 #endif
 

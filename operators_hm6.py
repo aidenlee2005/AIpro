@@ -48,7 +48,7 @@ class Tensor(Value):
         )
 
     @staticmethod
-    def _array_from_numpy(numpy_array, device, dtype):  #return MyTensor
+    def _array_from_numpy(numpy_array, device, dtype):
         if device is None:
             device_str = "cpu"
         elif isinstance(device, str):
@@ -75,7 +75,7 @@ class Tensor(Value):
     def make_const(data, requires_grad=False):
         tensor = Tensor.__new__(Tensor)
         if isinstance(data, np.ndarray):
-            data = MyTensor.from_numpy(data.astype(np.float32)) ####
+            data = MyTensor.from_numpy(data.astype(np.float32))
         tensor._init(
             None,
             [],

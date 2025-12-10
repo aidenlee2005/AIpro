@@ -69,17 +69,12 @@ static TensorPtr fc_forward(const TensorPtr& input, const TensorPtr& weight, con
     int out_features = weight->get_shape()[1];
     std::vector<int> out_shape = {batch, out_features};
     TensorPtr output = make_tensor_like(input, out_shape);
-    //void forward_fc(float* input, float* output, float* weight, float* bias,
-    //    int batch_size, int out_features, int in_features){
     forward_fc(input->data(), output->data(), weight->data(), bias->data(), batch, out_features, in_shape[1]);
     return output;
 }
 
 static void fc_backward(const TensorPtr& grad_output, const TensorPtr& input, const TensorPtr& weight, const TensorPtr& bias,
                         const TensorPtr& grad_input, const TensorPtr& grad_weight, const TensorPtr& grad_bias){
-    //void backward_fc(float* input, float* weight, float* bias,
-    // int batch_size, int out_features, int in_features,
-    // float* grad_input, float* grad_output, float* grad_weight, float* grad_bias)
     int batch_size = input->get_shape()[0];
     int out_features = weight->get_shape()[1];
     int in_features = weight->get_shape()[0];
@@ -109,10 +104,6 @@ static TensorPtr conv2d_forward(const TensorPtr& input, const TensorPtr& filter)
 
 static void conv2d_backward(const TensorPtr& grad_output, const TensorPtr& input, const TensorPtr& filter,
                             const TensorPtr& grad_input, const TensorPtr& grad_filter){
-    // void backward_conv2d(float* input, float* filter,
-    // int batch_size, int out_channels, int in_channels, int height, int width,
-    // float* grad_input, float* grad_output, float* grad_filter,
-    // cudaStream_t stream){
     int batch_size = input->get_shape()[0];
     int out_channels = filter->get_shape()[0];
     int in_channels = input->get_shape()[1];
@@ -123,9 +114,6 @@ static void conv2d_backward(const TensorPtr& grad_output, const TensorPtr& input
 }
 
 static TensorPtr max_pool2d_forward(const TensorPtr& input){
-    // void forward_maxpool(const float* input, float* output, float* mask,
-    // int batch_size, int in_channels, int in_h, int in_w,
-    // int out_h, int out_w, cudaStream_t stream){
     int batch_size = input->get_shape()[0];
     int in_channels = input->get_shape()[1];
     int in_h = input->get_shape()[2];
@@ -156,10 +144,7 @@ static TensorPtr max_pool2d_forward_mask(const TensorPtr& input){
 }
 
 static void max_pool2d_backward(const TensorPtr& grad_output, const TensorPtr& mask, 
-                                    const TensorPtr& input, const TensorPtr& grad_input){
-    // void backward_maxpool(const float* grad_output, const float* mask, float* grad_input,
-    // int batch_size, int in_channels, int in_h, int in_w,
-    // int out_h, int out_w, cudaStream_t stream){                     
+                                const TensorPtr& input, const TensorPtr& grad_input){
     int batch_size = input->get_shape()[0];
     int in_channels = input->get_shape()[1];
     int in_h = input->get_shape()[2];
@@ -168,9 +153,7 @@ static void max_pool2d_backward(const TensorPtr& grad_output, const TensorPtr& m
     int out_w = in_w / 2;
     backward_maxpool(grad_output->data(), mask->data(), grad_input->data(),
                      batch_size, in_channels, in_h, in_w, out_h, out_w, 0);
-}
-
-static TensorPtr softmax_forward(const TensorPtr& input){
+}static TensorPtr softmax_forward(const TensorPtr& input){
     // void forward_softmax(const float* input, float* output,
     // int batch_size ,int num_classes, cudaStream_t stream){
     int batch_size = input->get_shape()[0];

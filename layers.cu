@@ -10,32 +10,26 @@
 #include <thrust/sequence.h>
 #include <thrust/gather.h>
 
-#ifndef CUDA_KERNAL_LOOP
-#define CUDA_KERNAL_LOOP(i,n)\
-    for(int i=blockIdx.x*blockDim.x+threadIdx.x;i<n;i+=blockDim.x*gridDim.x)
-#endif
-
-
 __global__ void relu_gpu_kernel(float* in, float* out, int size){
-    CUDA_KERNAL_LOOP(i, size){
+    CUDA_KERNEL_LOOP(i, size){
         out[i] = in[i] > 0 ? in[i] : 0;
     }
 }
 
 __global__ void relu_gpu_backward_kernel(float* in_grad, float* out_grad, float* x, int size){
-    CUDA_KERNAL_LOOP(i, size){
+    CUDA_KERNEL_LOOP(i, size){
         in_grad[i] = x[i] > 0 ? out_grad[i] : 0;
     }
 }
 
 __global__ void sigmoid_gpu_kernel(float* in, float* out, int size){
-    CUDA_KERNAL_LOOP(i, size){
+    CUDA_KERNEL_LOOP(i, size){
         out[i] = 1 / (1 + exp(-in[i]));
     }
 }
 
 __global__ void sigmoid_gpu_backward_kernel(float* in_grad, float* out_grad, float* out, int size){
-    CUDA_KERNAL_LOOP(i, size){
+    CUDA_KERNEL_LOOP(i, size){
         float sig = out[i];
         in_grad[i] = sig * (1 - sig) * out_grad[i];
     }
@@ -485,7 +479,7 @@ __global__ void max_pool_forward_kernel(const float* input, float* output, float
     int batch_size, int in_channels, int in_h, int in_w, int out_h, int out_w){
     //Assume kernel_size=2, stride=2
     int nthreads = batch_size * in_channels * out_h * out_w;
-    CUDA_KERNAL_LOOP(idx, nthreads){
+    CUDA_KERNEL_LOOP(idx, nthreads){
         int b = idx / (in_channels * out_h * out_w);  //batch index
         int c = (idx % (in_channels * out_h * out_w)) / (out_h * out_w); //channel index
         int h = (idx % (out_h * out_w)) / out_w; //height index
@@ -792,56 +786,56 @@ void adam_update_gpu(float* param, const float* grad, float* m, float* v,
 
 // Element-wise kernels
 __global__ void eltwise_add_kernel(const float* a, const float* b, float* out, int size) {
-    CUDA_KERNAL_LOOP(i, size) {
+    CUDA_KERNEL_LOOP(i, size) {
         out[i] = a[i] + b[i];
     }
 }
 
 __global__ void eltwise_sub_kernel(const float* a, const float* b, float* out, int size) {
-    CUDA_KERNAL_LOOP(i, size) {
+    CUDA_KERNEL_LOOP(i, size) {
         out[i] = a[i] - b[i];
     }
 }
 
 __global__ void eltwise_mul_kernel(const float* a, const float* b, float* out, int size) {
-    CUDA_KERNAL_LOOP(i, size) {
+    CUDA_KERNEL_LOOP(i, size) {
         out[i] = a[i] * b[i];
     }
 }
 
 __global__ void eltwise_div_kernel(const float* a, const float* b, float* out, int size) {
-    CUDA_KERNAL_LOOP(i, size) {
+    CUDA_KERNEL_LOOP(i, size) {
         out[i] = a[i] / b[i];
     }
 }
 
 __global__ void eltwise_pow_kernel(const float* a, const float* b, float* out, int size) {
-    CUDA_KERNAL_LOOP(i, size) {
+    CUDA_KERNEL_LOOP(i, size) {
         out[i] = powf(a[i], b[i]);
     }
 }
 
 // Scalar kernels
 __global__ void scalar_add_kernel(const float* a, float val, float* out, int size) {
-    CUDA_KERNAL_LOOP(i, size) {
+    CUDA_KERNEL_LOOP(i, size) {
         out[i] = a[i] + val;
     }
 }
 
 __global__ void scalar_mul_kernel(const float* a, float val, float* out, int size) {
-    CUDA_KERNAL_LOOP(i, size) {
+    CUDA_KERNEL_LOOP(i, size) {
         out[i] = a[i] * val;
     }
 }
 
 __global__ void scalar_div_kernel(const float* a, float val, float* out, int size) {
-    CUDA_KERNAL_LOOP(i, size) {
+    CUDA_KERNEL_LOOP(i, size) {
         out[i] = a[i] / val;
     }
 }
 
 __global__ void scalar_pow_kernel(const float* a, float val, float* out, int size) {
-    CUDA_KERNAL_LOOP(i, size) {
+    CUDA_KERNEL_LOOP(i, size) {
         out[i] = powf(a[i], val);
     }
 }
