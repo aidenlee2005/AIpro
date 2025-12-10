@@ -201,6 +201,53 @@ static void cross_entropy_backward(const TensorPtr& input, const TensorPtr& labe
     backward_cross_entropy(input->data(), labels->data(), batch_size, num_classes, grad_input->data(), 0);
 }
 
+static void sgd_step(std::vector<TensorPtr>& params, 
+                     std::vector<TensorPtr>& grads, 
+                     std::vector<TensorPtr>& velocities,
+                     float lr, float momentum, float weight_decay) {
+    if (params.size() != grads.size()) {
+        throw std::runtime_error("params and grads must have the same size");
+    }
+    for (size_t i = 0; i < params.size(); ++i) {
+        if (params[i]->is_cpu() || grads[i]->is_cpu()) {
+             throw std::runtime_error("SGD step requires GPU tensors");
+        }
+        if (momentum > 0 && !velocities.empty()) {
+            if (velocities[i]->is_cpu()) {
+                throw std::runtime_error("SGD step requires GPU velocity tensors");
+            }
+        }
+
+        int size = params[i]->get_size();
+        float* v_ptr = (momentum > 0 && !velocities.empty()) ? velocities[i]->data() : nullptr;
+        
+        // Debug print
+        // std::cout << "SGD Step: param=" << params[i]->data() 
+        //           << " grad=" << grads[i]->data() 
+        //           << " v=" << v_ptr 
+        //           << " size=" << size 
+        //           << " lr=" << lr << std::endl;
+
+        sgd_update_gpu(params[i]->data(), grads[i]->data(), v_ptr, lr, momentum, weight_decay, size, 0);
+    }
+    cudaDeviceSynchronize();
+}
+
+static void adam_step(std::vector<TensorPtr>& params, 
+                      std::vector<TensorPtr>& grads, 
+                      std::vector<TensorPtr>& ms,
+                      std::vector<TensorPtr>& vs,
+                      float lr, float beta1, float beta2, float eps, float weight_decay, int t) {
+    if (params.size() != grads.size()) {
+        throw std::runtime_error("params and grads must have the same size");
+    }
+    for (size_t i = 0; i < params.size(); ++i) {
+        int size = params[i]->get_size();
+        adam_update_gpu(params[i]->data(), grads[i]->data(), ms[i]->data(), vs[i]->data(),
+                        lr, beta1, beta2, eps, weight_decay, t, size, 0);
+    }
+}
+
 PYBIND11_MODULE(py_tensor, m) {
     py::enum_<Device>(m, "Device")
         .value("CPU", Device::CPU)
@@ -271,4 +318,8 @@ PYBIND11_MODULE(py_tensor, m) {
     m.def("softmax_forward", &softmax_forward, py::arg("input"));
     m.def("cross_entropy_forward", &cross_entropy_forward, py::arg("input"), py::arg("labels"));
     m.def("cross_entropy_backward", &cross_entropy_backward, py::arg("input"), py::arg("labels"), py::arg("input_grad"));
+    m.def("sgd_step", &sgd_step, py::arg("params"), py::arg("grads"), py::arg("velocities"),
+          py::arg("lr"), py::arg("momentum"), py::arg("weight_decay"));
+    m.def("adam_step", &adam_step, py::arg("params"), py::arg("grads"), py::arg("ms"), py::arg("vs"),
+          py::arg("lr"), py::arg("beta1"), py::arg("beta2"), py::arg("eps"), py::arg("weight_decay"), py::arg("t"));
 }

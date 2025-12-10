@@ -102,8 +102,8 @@ def train():
     )
     
     criterion = nn.CrossEntropyLoss()
-    optimizer = nn.SGD(model.parameters(), lr=0.01, momentum=0.9, weight_decay=1e-4)
-    # optimizer = nn.Adam(model.parameters(), lr=0.001)
+    # optimizer = nn.SGD(model.parameters(), lr=0.01, momentum=0.9, weight_decay=1e-4)
+    optimizer = nn.Adam(model.parameters(), lr=0.001)
     
     epochs = 5
     batch_size = 64

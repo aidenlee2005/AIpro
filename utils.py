@@ -11,21 +11,30 @@ from operators_hm6 import Tensor
 def rand(*shape, low=0.0, high=1.0, device=None, dtype="float32", requires_grad=False):
     """Generate random numbers uniform between low and high"""
     device = cpu() if device is None else device
-    array = device.rand(*shape) * (high - low) + low
+    if isinstance(device, str):
+        array = cpu().rand(*shape) * (high - low) + low
+    else:
+        array = device.rand(*shape) * (high - low) + low
     return Tensor(array, device=device, dtype=dtype, requires_grad=requires_grad)
 
 
 def randn(*shape, mean=0.0, std=1.0, device=None, dtype="float32", requires_grad=False):
     """Generate random normal with specified mean and std deviation"""
     device = cpu() if device is None else device
-    array = device.randn(*shape) * std + mean
+    if isinstance(device, str):
+        array = cpu().randn(*shape) * std + mean
+    else:
+        array = device.randn(*shape) * std + mean
     return Tensor(array, device=device, dtype=dtype, requires_grad=requires_grad)
 
 
 def constant(*shape, c=1.0, device=None, dtype="float32", requires_grad=False):
     """Generate constant Tensor"""
     device = cpu() if device is None else device
-    array = device.ones(*shape, dtype=dtype) * c  # note: can change dtype
+    if isinstance(device, str):
+        array = cpu().ones(*shape, dtype=dtype) * c
+    else:
+        array = device.ones(*shape, dtype=dtype) * c  # note: can change dtype
     return Tensor(array, device=device, dtype=dtype, requires_grad=requires_grad)
 
 

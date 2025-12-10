@@ -68,17 +68,19 @@ void gemm_gpu(TransposeType transA, TransposeType transB,
               const float alf, const float bet, cudaStream_t stream = 0){
 
     // 语义（row-major）: C (m x n) = alf * op(A) (m x k) * op(B) (k x n) + bet * C (m x n)
-    cublasHandle_t handle;
-    cublasStatus_t stat = cublasCreate(&handle);
-    if (stat != CUBLAS_STATUS_SUCCESS){
-        std::cerr << "cublasCreate failed: " << stat << std::endl;
-        return;
+    static cublasHandle_t handle = nullptr;
+    if (handle == nullptr) {
+        cublasStatus_t stat = cublasCreate(&handle);
+        if (stat != CUBLAS_STATUS_SUCCESS){
+            std::cerr << "cublasCreate failed: " << stat << std::endl;
+            return;
+        }
     }
 
-    stat = cublasSetStream(handle, stream);
+    cublasStatus_t stat = cublasSetStream(handle, stream);
     if (stat != CUBLAS_STATUS_SUCCESS){
         std::cerr << "cublasSetStream failed: " << stat << std::endl;
-        cublasDestroy(handle);
+        // Don't destroy handle here as it is static
         return;
     }
 
@@ -109,7 +111,7 @@ void gemm_gpu(TransposeType transA, TransposeType transB,
         std::cerr << "cublasSgemm failed: " << stat << std::endl;
     }
 
-    cublasDestroy(handle);
+    // cublasDestroy(handle); // Do not destroy static handle
 }
 
 __global__ void quantize_one_decimal(float* data, int n){
@@ -719,4 +721,71 @@ void backward_cross_entropy(const float* input_logits, const float* labels,
     int bs = 256;
     int gs = (total + bs - 1) / bs;
     scale_grad<<<gs, bs, 0, stream>>>(grad_output, total, 1.0f / float(batch_size));
+}
+
+// SGD Update Kernel
+__global__ void sgd_update_kernel(float* param, const float* grad, float* velocity,
+                                  float lr, float momentum, float weight_decay, int size) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < size) {
+        float g = grad[idx];
+        if (weight_decay != 0.0f) {
+            g += param[idx] * weight_decay;
+        }
+        
+        float v = 0.0f;
+        if (momentum != 0.0f) {
+            // velocity is assumed to be initialized to 0
+            v = velocity[idx] * momentum + g;
+            velocity[idx] = v;
+            param[idx] -= lr * v;
+        } else {
+            param[idx] -= lr * g;
+        }
+    }
+}
+
+void sgd_update_gpu(float* param, const float* grad, float* velocity, 
+                    float lr, float momentum, float weight_decay, int size, cudaStream_t stream) {
+    int blockSize = 256;
+    int gridSize = (size + blockSize - 1) / blockSize;
+    sgd_update_kernel<<<gridSize, blockSize, 0, stream>>>(param, grad, velocity, lr, momentum, weight_decay, size);
+}
+
+// Adam Update Kernel
+__global__ void adam_update_kernel(float* param, const float* grad, float* m, float* v,
+                                   float lr, float beta1, float beta2, float eps, float weight_decay, 
+                                   int step, int size) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < size) {
+        float g = grad[idx];
+        if (weight_decay != 0.0f) {
+            g += param[idx] * weight_decay;
+        }
+        
+        // Update biased first moment estimate
+        float m_t = m[idx] * beta1 + g * (1.0f - beta1);
+        m[idx] = m_t;
+        
+        // Update biased second raw moment estimate
+        float v_t = v[idx] * beta2 + (g * g) * (1.0f - beta2);
+        v[idx] = v_t;
+        
+        // Compute bias-corrected first moment estimate
+        float m_hat = m_t / (1.0f - powf(beta1, step));
+        
+        // Compute bias-corrected second raw moment estimate
+        float v_hat = v_t / (1.0f - powf(beta2, step));
+        
+        // Update parameters
+        param[idx] -= lr * m_hat / (sqrtf(v_hat) + eps);
+    }
+}
+
+void adam_update_gpu(float* param, const float* grad, float* m, float* v,
+                     float lr, float beta1, float beta2, float eps, float weight_decay, 
+                     int step, int size, cudaStream_t stream) {
+    int blockSize = 256;
+    int gridSize = (size + blockSize - 1) / blockSize;
+    adam_update_kernel<<<gridSize, blockSize, 0, stream>>>(param, grad, m, v, lr, beta1, beta2, eps, weight_decay, step, size);
 }

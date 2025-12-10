@@ -73,4 +73,12 @@ void forward_cross_entropy(const float* input, const float* labels, float* loss,
 void backward_cross_entropy(const float* softmax_output, const float* labels,
     int batch_size, int num_classes, float* grad_output, cudaStream_t stream);
 
+// SGD and Adam update functions
+void sgd_update_gpu(float* param, const float* grad, float* velocity, 
+                    float lr, float momentum, float weight_decay, int size, cudaStream_t stream);
+
+void adam_update_gpu(float* param, const float* grad, float* m, float* v,
+                     float lr, float beta1, float beta2, float eps, float weight_decay, 
+                     int step, int size, cudaStream_t stream);
+
 #endif

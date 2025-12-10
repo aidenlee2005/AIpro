@@ -112,6 +112,9 @@ class Tensor(Value):
 
     @property
     def device(self):
+        data = self.realize_cached_data()
+        if data.is_gpu():
+            return "gpu"
         return cpu()
 
 

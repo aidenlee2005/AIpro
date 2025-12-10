@@ -1,6 +1,9 @@
 import numpy as np
 from tensor_hm6 import TensorFull
 from operators_hm6 import Tensor
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "build"))
+import py_tensor
 
 class Parameter(TensorFull):
     """
@@ -74,25 +77,28 @@ class SGD(Optimizer):
         self.u = {}  # 动量缓存
 
     def step(self):
+        params = []
+        grads = []
+        velocities = []
+        
         for i, p in enumerate(self.params):
             if p.grad is None:
                 continue
             
-            grad = p.grad.data
-            if self.weight_decay > 0:
-                grad = grad + p.data * self.weight_decay
-
+            params.append(p.realize_cached_data())
+            grads.append(p.grad.realize_cached_data())
+            
             if self.momentum > 0:
                 if i not in self.u:
-                    self.u[i] = grad
-                else:
-                    self.u[i] = self.u[i] * self.momentum + grad
+                    # Initialize velocity with zeros
+                    self.u[i] = Tensor(np.zeros(p.shape, dtype=np.float32), device=p.device)
                 
-                # 更新参数: p = p - lr * u
-                p.data = p.data - self.u[i] * self.lr
-            else:
-                # 更新参数: p = p - lr * grad
-                p.data = p.data - grad * self.lr
+                velocities.append(self.u[i].realize_cached_data())
+        
+        if not params:
+            return
+
+        py_tensor.sgd_step(params, grads, velocities, self.lr, self.momentum, self.weight_decay)
 
 class Adam(Optimizer):
     def __init__(self, params, lr=0.001, beta1=0.9, beta2=0.999, eps=1e-8, weight_decay=0.0):
@@ -107,38 +113,30 @@ class Adam(Optimizer):
 
     def step(self):
         self.t += 1
+        params = []
+        grads = []
+        ms = []
+        vs = []
+        
         for i, p in enumerate(self.params):
             if p.grad is None:
                 continue
             
-            grad = p.grad.data
-            if self.weight_decay > 0:
-                grad = grad + p.data * self.weight_decay
-
+            params.append(p.realize_cached_data())
+            grads.append(p.grad.realize_cached_data())
+            
             if i not in self.m:
-                self.m[i] = 0 # 这里的0会在计算时广播或被替换
-                self.v[i] = 0
-
-            # m_t = beta1 * m_{t-1} + (1 - beta1) * g_t
-            # v_t = beta2 * v_{t-1} + (1 - beta2) * g_t^2
+                self.m[i] = Tensor(np.zeros(p.shape, dtype=np.float32), device=p.device)
+                self.v[i] = Tensor(np.zeros(p.shape, dtype=np.float32), device=p.device)
             
-            # 注意：这里的运算都是基于 Tensor 的重载运算符
-            if self.m[i] == 0:
-                 self.m[i] = grad * (1 - self.beta1)
-            else:
-                 self.m[i] = self.m[i] * self.beta1 + grad * (1 - self.beta1)
+            ms.append(self.m[i].realize_cached_data())
+            vs.append(self.v[i].realize_cached_data())
             
-            if self.v[i] == 0:
-                 self.v[i] = (grad * grad) * (1 - self.beta2)
-            else:
-                 self.v[i] = self.v[i] * self.beta2 + (grad * grad) * (1 - self.beta2)
+        if not params:
+            return
 
-            m_hat = self.m[i] / (1 - self.beta1 ** self.t)
-            v_hat = self.v[i] / (1 - self.beta2 ** self.t)
-
-            # p = p - lr * m_hat / (sqrt(v_hat) + eps)
-            # 由于 Tensor 可能没有 sqrt 方法，我们可能需要 pow(0.5)
-            p.data = p.data - m_hat * self.lr / (v_hat ** 0.5 + self.eps)
+        py_tensor.adam_step(params, grads, ms, vs, 
+                            self.lr, self.beta1, self.beta2, self.eps, self.weight_decay, self.t)
 
 # --- 常用层定义 ---
 
