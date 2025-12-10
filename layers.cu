@@ -882,3 +882,110 @@ void scalar_div(const float* a, float val, float* out, int size) {
 void scalar_pow(const float* a, float val, float* out, int size) {
     scalar_pow_kernel<<<(size + 255) / 256, 256>>>(a, val, out, size);
 }
+
+// Broadcast Kernels
+__global__ void eltwise_add_broadcast_kernel(const float* a, const float* b, float* out, int size, int ndim, TensorStrides out_strides, TensorStrides a_strides, TensorStrides b_strides) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= size) return;
+
+    int temp_idx = idx;
+    int idx_a = 0;
+    int idx_b = 0;
+
+    for (int i = 0; i < ndim; ++i) {
+        int coord = temp_idx / out_strides.data[i];
+        temp_idx %= out_strides.data[i];
+        idx_a += coord * a_strides.data[i];
+        idx_b += coord * b_strides.data[i];
+    }
+    out[idx] = a[idx_a] + b[idx_b];
+}
+
+__global__ void eltwise_sub_broadcast_kernel(const float* a, const float* b, float* out, int size, int ndim, TensorStrides out_strides, TensorStrides a_strides, TensorStrides b_strides) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= size) return;
+
+    int temp_idx = idx;
+    int idx_a = 0;
+    int idx_b = 0;
+
+    for (int i = 0; i < ndim; ++i) {
+        int coord = temp_idx / out_strides.data[i];
+        temp_idx %= out_strides.data[i];
+        idx_a += coord * a_strides.data[i];
+        idx_b += coord * b_strides.data[i];
+    }
+    out[idx] = a[idx_a] - b[idx_b];
+}
+
+__global__ void eltwise_mul_broadcast_kernel(const float* a, const float* b, float* out, int size, int ndim, TensorStrides out_strides, TensorStrides a_strides, TensorStrides b_strides) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= size) return;
+
+    int temp_idx = idx;
+    int idx_a = 0;
+    int idx_b = 0;
+
+    for (int i = 0; i < ndim; ++i) {
+        int coord = temp_idx / out_strides.data[i];
+        temp_idx %= out_strides.data[i];
+        idx_a += coord * a_strides.data[i];
+        idx_b += coord * b_strides.data[i];
+    }
+    out[idx] = a[idx_a] * b[idx_b];
+}
+
+__global__ void eltwise_div_broadcast_kernel(const float* a, const float* b, float* out, int size, int ndim, TensorStrides out_strides, TensorStrides a_strides, TensorStrides b_strides) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= size) return;
+
+    int temp_idx = idx;
+    int idx_a = 0;
+    int idx_b = 0;
+
+    for (int i = 0; i < ndim; ++i) {
+        int coord = temp_idx / out_strides.data[i];
+        temp_idx %= out_strides.data[i];
+        idx_a += coord * a_strides.data[i];
+        idx_b += coord * b_strides.data[i];
+    }
+    out[idx] = a[idx_a] / b[idx_b];
+}
+
+__global__ void eltwise_pow_broadcast_kernel(const float* a, const float* b, float* out, int size, int ndim, TensorStrides out_strides, TensorStrides a_strides, TensorStrides b_strides) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= size) return;
+
+    int temp_idx = idx;
+    int idx_a = 0;
+    int idx_b = 0;
+
+    for (int i = 0; i < ndim; ++i) {
+        int coord = temp_idx / out_strides.data[i];
+        temp_idx %= out_strides.data[i];
+        idx_a += coord * a_strides.data[i];
+        idx_b += coord * b_strides.data[i];
+    }
+    out[idx] = powf(a[idx_a], b[idx_b]);
+}
+
+// Broadcast Wrappers
+void eltwise_add_broadcast(const float* a, const float* b, float* out, int size, int ndim, TensorStrides out_strides, TensorStrides a_strides, TensorStrides b_strides) {
+    eltwise_add_broadcast_kernel<<<(size + 255) / 256, 256>>>(a, b, out, size, ndim, out_strides, a_strides, b_strides);
+}
+
+void eltwise_sub_broadcast(const float* a, const float* b, float* out, int size, int ndim, TensorStrides out_strides, TensorStrides a_strides, TensorStrides b_strides) {
+    eltwise_sub_broadcast_kernel<<<(size + 255) / 256, 256>>>(a, b, out, size, ndim, out_strides, a_strides, b_strides);
+}
+
+void eltwise_mul_broadcast(const float* a, const float* b, float* out, int size, int ndim, TensorStrides out_strides, TensorStrides a_strides, TensorStrides b_strides) {
+    eltwise_mul_broadcast_kernel<<<(size + 255) / 256, 256>>>(a, b, out, size, ndim, out_strides, a_strides, b_strides);
+}
+
+void eltwise_div_broadcast(const float* a, const float* b, float* out, int size, int ndim, TensorStrides out_strides, TensorStrides a_strides, TensorStrides b_strides) {
+    eltwise_div_broadcast_kernel<<<(size + 255) / 256, 256>>>(a, b, out, size, ndim, out_strides, a_strides, b_strides);
+}
+
+void eltwise_pow_broadcast(const float* a, const float* b, float* out, int size, int ndim, TensorStrides out_strides, TensorStrides a_strides, TensorStrides b_strides) {
+    eltwise_pow_broadcast_kernel<<<(size + 255) / 256, 256>>>(a, b, out, size, ndim, out_strides, a_strides, b_strides);
+}

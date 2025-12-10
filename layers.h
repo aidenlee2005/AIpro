@@ -94,4 +94,17 @@ void scalar_mul(const float* a, float val, float* out, int size);
 void scalar_div(const float* a, float val, float* out, int size);
 void scalar_pow(const float* a, float val, float* out, int size);
 
+#define MAX_DIMS 4
+
+struct TensorStrides {
+    int data[MAX_DIMS];
+};
+
+// Broadcast wrappers
+void eltwise_add_broadcast(const float* a, const float* b, float* out, int size, int ndim, TensorStrides out_strides, TensorStrides a_strides, TensorStrides b_strides);
+void eltwise_sub_broadcast(const float* a, const float* b, float* out, int size, int ndim, TensorStrides out_strides, TensorStrides a_strides, TensorStrides b_strides);
+void eltwise_mul_broadcast(const float* a, const float* b, float* out, int size, int ndim, TensorStrides out_strides, TensorStrides a_strides, TensorStrides b_strides);
+void eltwise_div_broadcast(const float* a, const float* b, float* out, int size, int ndim, TensorStrides out_strides, TensorStrides a_strides, TensorStrides b_strides);
+void eltwise_pow_broadcast(const float* a, const float* b, float* out, int size, int ndim, TensorStrides out_strides, TensorStrides a_strides, TensorStrides b_strides);
+
 #endif

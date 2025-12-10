@@ -211,8 +211,7 @@ class EWiseAdd(TensorOp):
             return py.scalar_add(b, a.to_numpy().item())
         if b.size() == 1:
             return py.scalar_add(a, b.to_numpy().item())
-        if a.shape() != b.shape():
-            return MyTensor.from_numpy(a.to_numpy() + b.to_numpy(), device="gpu")
+        # C++ now supports broadcasting
         return py.eltwise_add(a, b)
 
     def gradient(self, out_grad: Tensor, node: Tensor):
@@ -244,8 +243,7 @@ class EWiseMul(TensorOp):
             return py.scalar_mul(b, a.to_numpy().item())
         if b.size() == 1:
             return py.scalar_mul(a, b.to_numpy().item())
-        if a.shape() != b.shape():
-            return MyTensor.from_numpy(a.to_numpy() * b.to_numpy(), device="gpu")
+        # C++ now supports broadcasting
         return py.eltwise_mul(a, b)
 
     def gradient(self, out_grad: Tensor, node: Tensor):
@@ -297,8 +295,7 @@ class EWisePow(TensorOp):
     def compute(self, a: MyTensor, b: MyTensor) -> MyTensor:
         if b.size() == 1:
             return py.scalar_pow(a, b.to_numpy().item())
-        if a.shape() != b.shape():
-            return MyTensor.from_numpy(a.to_numpy() ** b.to_numpy(), device="gpu")
+        # C++ now supports broadcasting
         return py.eltwise_pow(a, b)
 
     def gradient(self, out_grad, node):
@@ -322,8 +319,7 @@ class EWiseDiv(TensorOp):
     def compute(self, a: MyTensor, b: MyTensor):
         if b.size() == 1:
             return py.scalar_div(a, b.to_numpy().item())
-        if a.shape() != b.shape():
-            return MyTensor.from_numpy(a.to_numpy() / b.to_numpy(), device="gpu")
+        # C++ now supports broadcasting
         return py.eltwise_div(a, b)
         
 

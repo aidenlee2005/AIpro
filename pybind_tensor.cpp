@@ -248,35 +248,174 @@ static void adam_step(std::vector<TensorPtr>& params,
     }
 }
 
+// Helper for broadcasting
+static bool compute_broadcast_strides(const std::vector<int>& shape_a, const std::vector<int>& shape_b,
+                                      std::vector<int>& out_shape,
+                                      TensorStrides& out_strides,
+                                      TensorStrides& a_strides,
+                                      TensorStrides& b_strides,
+                                      int& ndim) {
+    int ndim_a = shape_a.size();
+    int ndim_b = shape_b.size();
+    ndim = std::max(ndim_a, ndim_b);
+    
+    if (ndim > MAX_DIMS) return false; // Too many dims
+
+    out_shape.resize(ndim);
+    
+    // Compute output shape
+    for (int i = 0; i < ndim; ++i) {
+        int dim_a = (i < ndim - ndim_a) ? 1 : shape_a[i - (ndim - ndim_a)];
+        int dim_b = (i < ndim - ndim_b) ? 1 : shape_b[i - (ndim - ndim_b)];
+        
+        if (dim_a != dim_b && dim_a != 1 && dim_b != 1) {
+            return false; // Incompatible shapes
+        }
+        out_shape[i] = std::max(dim_a, dim_b);
+    }
+
+    // Compute strides
+    // Real strides for A
+    std::vector<int> real_strides_a(ndim_a);
+    int stride = 1;
+    for (int i = ndim_a - 1; i >= 0; --i) {
+        real_strides_a[i] = stride;
+        stride *= shape_a[i];
+    }
+    
+    // Real strides for B
+    std::vector<int> real_strides_b(ndim_b);
+    stride = 1;
+    for (int i = ndim_b - 1; i >= 0; --i) {
+        real_strides_b[i] = stride;
+        stride *= shape_b[i];
+    }
+
+    // Virtual strides relative to out_shape
+    // Out strides
+    stride = 1;
+    for (int i = ndim - 1; i >= 0; --i) {
+        out_strides.data[i] = stride;
+        stride *= out_shape[i];
+    }
+
+    for (int i = 0; i < ndim; ++i) {
+        // Map out dim i to A dim
+        int offset_a = i - (ndim - ndim_a);
+        if (offset_a >= 0) {
+            int dim_a = shape_a[offset_a];
+            a_strides.data[i] = (dim_a == 1) ? 0 : real_strides_a[offset_a];
+        } else {
+            a_strides.data[i] = 0; // Broadcast (prepend 1)
+        }
+
+        // Map out dim i to B dim
+        int offset_b = i - (ndim - ndim_b);
+        if (offset_b >= 0) {
+            int dim_b = shape_b[offset_b];
+            b_strides.data[i] = (dim_b == 1) ? 0 : real_strides_b[offset_b];
+        } else {
+            b_strides.data[i] = 0; // Broadcast (prepend 1)
+        }
+    }
+    
+    return true;
+}
+
 // Element-wise bindings
 static TensorPtr eltwise_add_op(const TensorPtr& a, const TensorPtr& b) {
-    TensorPtr out = make_tensor_like(a, a->get_shape());
-    eltwise_add(a->data(), b->data(), out->data(), a->get_size());
-    return out;
+    if (a->get_shape() == b->get_shape()) {
+        TensorPtr out = make_tensor_like(a, a->get_shape());
+        eltwise_add(a->data(), b->data(), out->data(), a->get_size());
+        return out;
+    } else {
+        std::vector<int> out_shape;
+        TensorStrides out_s, a_s, b_s;
+        int ndim;
+        if (compute_broadcast_strides(a->get_shape(), b->get_shape(), out_shape, out_s, a_s, b_s, ndim)) {
+            TensorPtr out = make_tensor_like(a, out_shape); // Use a's device
+            eltwise_add_broadcast(a->data(), b->data(), out->data(), out->get_size(), ndim, out_s, a_s, b_s);
+            return out;
+        } else {
+             throw std::runtime_error("Incompatible shapes for broadcasting or too many dims");
+        }
+    }
 }
 
 static TensorPtr eltwise_sub_op(const TensorPtr& a, const TensorPtr& b) {
-    TensorPtr out = make_tensor_like(a, a->get_shape());
-    eltwise_sub(a->data(), b->data(), out->data(), a->get_size());
-    return out;
+    if (a->get_shape() == b->get_shape()) {
+        TensorPtr out = make_tensor_like(a, a->get_shape());
+        eltwise_sub(a->data(), b->data(), out->data(), a->get_size());
+        return out;
+    } else {
+        std::vector<int> out_shape;
+        TensorStrides out_s, a_s, b_s;
+        int ndim;
+        if (compute_broadcast_strides(a->get_shape(), b->get_shape(), out_shape, out_s, a_s, b_s, ndim)) {
+            TensorPtr out = make_tensor_like(a, out_shape);
+            eltwise_sub_broadcast(a->data(), b->data(), out->data(), out->get_size(), ndim, out_s, a_s, b_s);
+            return out;
+        } else {
+             throw std::runtime_error("Incompatible shapes for broadcasting or too many dims");
+        }
+    }
 }
 
 static TensorPtr eltwise_mul_op(const TensorPtr& a, const TensorPtr& b) {
-    TensorPtr out = make_tensor_like(a, a->get_shape());
-    eltwise_mul(a->data(), b->data(), out->data(), a->get_size());
-    return out;
+    if (a->get_shape() == b->get_shape()) {
+        TensorPtr out = make_tensor_like(a, a->get_shape());
+        eltwise_mul(a->data(), b->data(), out->data(), a->get_size());
+        return out;
+    } else {
+        std::vector<int> out_shape;
+        TensorStrides out_s, a_s, b_s;
+        int ndim;
+        if (compute_broadcast_strides(a->get_shape(), b->get_shape(), out_shape, out_s, a_s, b_s, ndim)) {
+            TensorPtr out = make_tensor_like(a, out_shape);
+            eltwise_mul_broadcast(a->data(), b->data(), out->data(), out->get_size(), ndim, out_s, a_s, b_s);
+            return out;
+        } else {
+             throw std::runtime_error("Incompatible shapes for broadcasting or too many dims");
+        }
+    }
 }
 
 static TensorPtr eltwise_div_op(const TensorPtr& a, const TensorPtr& b) {
-    TensorPtr out = make_tensor_like(a, a->get_shape());
-    eltwise_div(a->data(), b->data(), out->data(), a->get_size());
-    return out;
+    if (a->get_shape() == b->get_shape()) {
+        TensorPtr out = make_tensor_like(a, a->get_shape());
+        eltwise_div(a->data(), b->data(), out->data(), a->get_size());
+        return out;
+    } else {
+        std::vector<int> out_shape;
+        TensorStrides out_s, a_s, b_s;
+        int ndim;
+        if (compute_broadcast_strides(a->get_shape(), b->get_shape(), out_shape, out_s, a_s, b_s, ndim)) {
+            TensorPtr out = make_tensor_like(a, out_shape);
+            eltwise_div_broadcast(a->data(), b->data(), out->data(), out->get_size(), ndim, out_s, a_s, b_s);
+            return out;
+        } else {
+             throw std::runtime_error("Incompatible shapes for broadcasting or too many dims");
+        }
+    }
 }
 
 static TensorPtr eltwise_pow_op(const TensorPtr& a, const TensorPtr& b) {
-    TensorPtr out = make_tensor_like(a, a->get_shape());
-    eltwise_pow(a->data(), b->data(), out->data(), a->get_size());
-    return out;
+    if (a->get_shape() == b->get_shape()) {
+        TensorPtr out = make_tensor_like(a, a->get_shape());
+        eltwise_pow(a->data(), b->data(), out->data(), a->get_size());
+        return out;
+    } else {
+        std::vector<int> out_shape;
+        TensorStrides out_s, a_s, b_s;
+        int ndim;
+        if (compute_broadcast_strides(a->get_shape(), b->get_shape(), out_shape, out_s, a_s, b_s, ndim)) {
+            TensorPtr out = make_tensor_like(a, out_shape);
+            eltwise_pow_broadcast(a->data(), b->data(), out->data(), out->get_size(), ndim, out_s, a_s, b_s);
+            return out;
+        } else {
+             throw std::runtime_error("Incompatible shapes for broadcasting or too many dims");
+        }
+    }
 }
 
 // Scalar bindings
