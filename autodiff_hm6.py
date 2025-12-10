@@ -1,0 +1,82 @@
+"""
+本文件我们给出进行自动微分的步骤
+你可以将hw5的对应代码复制到这里
+"""
+
+from typing import List, Dict, Tuple
+from basic_operator_hm6 import Op, Value
+
+def find_topo_sort(node_list: List[Value]) -> List[Value]:
+    """
+    给定一个节点列表，返回以这些节点结束的拓扑排序列表。
+    一种简单的算法是对给定的节点进行后序深度优先搜索（DFS）遍历，
+    根据输入边向后遍历。由于一个节点是在其所有前驱节点遍历后才被添加到排序中的，
+    因此我们得到了一个拓扑排序。
+    """
+    ## 请于此填写你的代码
+    topo_list = []
+    visited = set()
+    for node in node_list:
+        if node not in visited:
+            visited.add(node)
+            topo_sort_dfs(node, visited, topo_list)
+    return topo_list
+    raise NotImplementedError()
+    
+
+
+def topo_sort_dfs(node, visited, topo_order):
+    """Post-order DFS"""
+    ## 请于此填写你的代码
+    for node_input in node.inputs:
+        if node_input not in visited:
+            visited.add(node_input)
+            topo_sort_dfs(node_input, visited, topo_order)
+    topo_order.append(node)
+    return
+    raise NotImplementedError()
+    
+
+def compute_gradient_of_variables(output_tensor, out_grad):
+    """
+    对输出节点相对于 node_list 中的每个节点求梯度。
+    将计算结果存储在每个 Variable 的 grad 字段中。
+    """
+    # map for 从节点到每个输出节点的梯度贡献列表
+    node_to_output_grads_list = {}
+    # 我们实际上是在对标量 reduce_sum(output_node) 
+    # 而非向量 output_node 取导数。
+    # 但这是损失函数的常见情况。
+    node_to_output_grads_list[output_tensor] = [out_grad]
+
+    # 根据我们要对其求梯度的 output_node，以逆拓扑排序遍历图。
+    reverse_topo_order = list(reversed(find_topo_sort([output_tensor])))
+    for node in reverse_topo_order:
+        if node.op is None:
+            continue
+        else:
+            # Filter out None grads
+            valid_grads = [g for g in node_to_output_grads_list[node] if g is not None]
+            if not valid_grads:
+                continue
+            total_grad = sum(valid_grads)
+            
+            grads = node.op.gradient_as_tuple(total_grad, node)
+            for input_node, grad in zip(node.inputs, grads):
+                if input_node not in node_to_output_grads_list:
+                    node_to_output_grads_list[input_node] = []
+                node_to_output_grads_list[input_node].append(grad)
+    for node, grads_list in node_to_output_grads_list.items():
+        valid_grads = [g for g in grads_list if g is not None]
+        if valid_grads:
+            node.grad = sum(valid_grads)
+    return 
+    raise NotImplementedError()
+    
+
+
+
+
+
+
+

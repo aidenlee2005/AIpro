@@ -7,7 +7,7 @@ import numpy as np
 from typing import List, Optional, Tuple, Union
 from device import cpu, Device
 from basic_operator import Op, Value
-from task0_autodiff import compute_gradient_of_variables
+from autodiff_hm6 import compute_gradient_of_variables
 
 class Tensor(Value):
     def __init__(
@@ -546,8 +546,7 @@ class ReLU(TensorOp):
         ## 请于此填写你的代码
         return out_grad * (node.inputs[0] > 0)
         raise NotImplementedError()
-        
-
+    
 
 def relu(a):
     return ReLU()(a)
