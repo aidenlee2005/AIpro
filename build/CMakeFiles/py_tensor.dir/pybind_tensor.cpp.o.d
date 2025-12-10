@@ -409,7 +409,8 @@ CMakeFiles/py_tensor.dir/pybind_tensor.cpp.o: \
  /usr/local/cuda/include/cuda_device_runtime_api.h \
  /usr/local/cuda/include/driver_functions.h \
  /usr/local/cuda/include/vector_functions.h \
- /usr/local/cuda/include/vector_functions.hpp /root/autodl-tmp/layers.h \
+ /usr/local/cuda/include/vector_functions.hpp \
+ /root/autodl-tmp/memory_pool.h /root/autodl-tmp/layers.h \
  /usr/local/cuda/include/cuda.h /usr/local/cuda/include/cublas_v2.h \
  /usr/local/cuda/include/cublas_api.h /usr/local/cuda/include/cuComplex.h \
  /usr/local/cuda/include/cuda_fp16.h /usr/local/cuda/include/nv/target \

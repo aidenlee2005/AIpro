@@ -248,7 +248,70 @@ static void adam_step(std::vector<TensorPtr>& params,
     }
 }
 
+// Element-wise bindings
+static TensorPtr eltwise_add_op(const TensorPtr& a, const TensorPtr& b) {
+    TensorPtr out = make_tensor_like(a, a->get_shape());
+    eltwise_add(a->data(), b->data(), out->data(), a->get_size());
+    return out;
+}
+
+static TensorPtr eltwise_sub_op(const TensorPtr& a, const TensorPtr& b) {
+    TensorPtr out = make_tensor_like(a, a->get_shape());
+    eltwise_sub(a->data(), b->data(), out->data(), a->get_size());
+    return out;
+}
+
+static TensorPtr eltwise_mul_op(const TensorPtr& a, const TensorPtr& b) {
+    TensorPtr out = make_tensor_like(a, a->get_shape());
+    eltwise_mul(a->data(), b->data(), out->data(), a->get_size());
+    return out;
+}
+
+static TensorPtr eltwise_div_op(const TensorPtr& a, const TensorPtr& b) {
+    TensorPtr out = make_tensor_like(a, a->get_shape());
+    eltwise_div(a->data(), b->data(), out->data(), a->get_size());
+    return out;
+}
+
+static TensorPtr eltwise_pow_op(const TensorPtr& a, const TensorPtr& b) {
+    TensorPtr out = make_tensor_like(a, a->get_shape());
+    eltwise_pow(a->data(), b->data(), out->data(), a->get_size());
+    return out;
+}
+
+// Scalar bindings
+static TensorPtr scalar_add_op(const TensorPtr& a, float val) {
+    TensorPtr out = make_tensor_like(a, a->get_shape());
+    scalar_add(a->data(), val, out->data(), a->get_size());
+    return out;
+}
+
+static TensorPtr scalar_mul_op(const TensorPtr& a, float val) {
+    TensorPtr out = make_tensor_like(a, a->get_shape());
+    scalar_mul(a->data(), val, out->data(), a->get_size());
+    return out;
+}
+
+static TensorPtr scalar_div_op(const TensorPtr& a, float val) {
+    TensorPtr out = make_tensor_like(a, a->get_shape());
+    scalar_div(a->data(), val, out->data(), a->get_size());
+    return out;
+}
+
+static TensorPtr scalar_pow_op(const TensorPtr& a, float val) {
+    TensorPtr out = make_tensor_like(a, a->get_shape());
+    scalar_pow(a->data(), val, out->data(), a->get_size());
+    return out;
+}
+
+static void empty_cache(){
+    MemoryPool::instance().clear();
+}
+
 PYBIND11_MODULE(py_tensor, m) {
+    m.doc() = "py_tensor plugin";
+    m.def("empty_cache", &empty_cache, "Clear the memory pool");
+
     py::enum_<Device>(m, "Device")
         .value("CPU", Device::CPU)
         .value("GPU", Device::GPU)
@@ -322,4 +385,15 @@ PYBIND11_MODULE(py_tensor, m) {
           py::arg("lr"), py::arg("momentum"), py::arg("weight_decay"));
     m.def("adam_step", &adam_step, py::arg("params"), py::arg("grads"), py::arg("ms"), py::arg("vs"),
           py::arg("lr"), py::arg("beta1"), py::arg("beta2"), py::arg("eps"), py::arg("weight_decay"), py::arg("t"));
+
+    m.def("eltwise_add", &eltwise_add_op);
+    m.def("eltwise_sub", &eltwise_sub_op);
+    m.def("eltwise_mul", &eltwise_mul_op);
+    m.def("eltwise_div", &eltwise_div_op);
+    m.def("eltwise_pow", &eltwise_pow_op);
+    
+    m.def("scalar_add", &scalar_add_op);
+    m.def("scalar_mul", &scalar_mul_op);
+    m.def("scalar_div", &scalar_div_op);
+    m.def("scalar_pow", &scalar_pow_op);
 }

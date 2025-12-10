@@ -785,7 +785,100 @@ __global__ void adam_update_kernel(float* param, const float* grad, float* m, fl
 void adam_update_gpu(float* param, const float* grad, float* m, float* v,
                      float lr, float beta1, float beta2, float eps, float weight_decay, 
                      int step, int size, cudaStream_t stream) {
-    int blockSize = 256;
-    int gridSize = (size + blockSize - 1) / blockSize;
-    adam_update_kernel<<<gridSize, blockSize, 0, stream>>>(param, grad, m, v, lr, beta1, beta2, eps, weight_decay, step, size);
+    int threads = 256;
+    int blocks = (size + threads - 1) / threads;
+    adam_update_kernel<<<blocks, threads, 0, stream>>>(param, grad, m, v, lr, beta1, beta2, eps, weight_decay, step, size);
+}
+
+// Element-wise kernels
+__global__ void eltwise_add_kernel(const float* a, const float* b, float* out, int size) {
+    CUDA_KERNAL_LOOP(i, size) {
+        out[i] = a[i] + b[i];
+    }
+}
+
+__global__ void eltwise_sub_kernel(const float* a, const float* b, float* out, int size) {
+    CUDA_KERNAL_LOOP(i, size) {
+        out[i] = a[i] - b[i];
+    }
+}
+
+__global__ void eltwise_mul_kernel(const float* a, const float* b, float* out, int size) {
+    CUDA_KERNAL_LOOP(i, size) {
+        out[i] = a[i] * b[i];
+    }
+}
+
+__global__ void eltwise_div_kernel(const float* a, const float* b, float* out, int size) {
+    CUDA_KERNAL_LOOP(i, size) {
+        out[i] = a[i] / b[i];
+    }
+}
+
+__global__ void eltwise_pow_kernel(const float* a, const float* b, float* out, int size) {
+    CUDA_KERNAL_LOOP(i, size) {
+        out[i] = powf(a[i], b[i]);
+    }
+}
+
+// Scalar kernels
+__global__ void scalar_add_kernel(const float* a, float val, float* out, int size) {
+    CUDA_KERNAL_LOOP(i, size) {
+        out[i] = a[i] + val;
+    }
+}
+
+__global__ void scalar_mul_kernel(const float* a, float val, float* out, int size) {
+    CUDA_KERNAL_LOOP(i, size) {
+        out[i] = a[i] * val;
+    }
+}
+
+__global__ void scalar_div_kernel(const float* a, float val, float* out, int size) {
+    CUDA_KERNAL_LOOP(i, size) {
+        out[i] = a[i] / val;
+    }
+}
+
+__global__ void scalar_pow_kernel(const float* a, float val, float* out, int size) {
+    CUDA_KERNAL_LOOP(i, size) {
+        out[i] = powf(a[i], val);
+    }
+}
+
+// Wrappers
+void eltwise_add(const float* a, const float* b, float* out, int size) {
+    eltwise_add_kernel<<<(size + 255) / 256, 256>>>(a, b, out, size);
+}
+
+void eltwise_sub(const float* a, const float* b, float* out, int size) {
+    eltwise_sub_kernel<<<(size + 255) / 256, 256>>>(a, b, out, size);
+}
+
+void eltwise_mul(const float* a, const float* b, float* out, int size) {
+    eltwise_mul_kernel<<<(size + 255) / 256, 256>>>(a, b, out, size);
+}
+
+void eltwise_div(const float* a, const float* b, float* out, int size) {
+    eltwise_div_kernel<<<(size + 255) / 256, 256>>>(a, b, out, size);
+}
+
+void eltwise_pow(const float* a, const float* b, float* out, int size) {
+    eltwise_pow_kernel<<<(size + 255) / 256, 256>>>(a, b, out, size);
+}
+
+void scalar_add(const float* a, float val, float* out, int size) {
+    scalar_add_kernel<<<(size + 255) / 256, 256>>>(a, val, out, size);
+}
+
+void scalar_mul(const float* a, float val, float* out, int size) {
+    scalar_mul_kernel<<<(size + 255) / 256, 256>>>(a, val, out, size);
+}
+
+void scalar_div(const float* a, float val, float* out, int size) {
+    scalar_div_kernel<<<(size + 255) / 256, 256>>>(a, val, out, size);
+}
+
+void scalar_pow(const float* a, float val, float* out, int size) {
+    scalar_pow_kernel<<<(size + 255) / 256, 256>>>(a, val, out, size);
 }

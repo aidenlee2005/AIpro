@@ -81,4 +81,17 @@ void adam_update_gpu(float* param, const float* grad, float* m, float* v,
                      float lr, float beta1, float beta2, float eps, float weight_decay, 
                      int step, int size, cudaStream_t stream);
 
+// Element-wise operations
+void eltwise_add(const float* a, const float* b, float* out, int size);
+void eltwise_sub(const float* a, const float* b, float* out, int size);
+void eltwise_mul(const float* a, const float* b, float* out, int size);
+void eltwise_div(const float* a, const float* b, float* out, int size);
+void eltwise_pow(const float* a, const float* b, float* out, int size);
+
+// Scalar operations
+void scalar_add(const float* a, float val, float* out, int size);
+void scalar_mul(const float* a, float val, float* out, int size);
+void scalar_div(const float* a, float val, float* out, int size);
+void scalar_pow(const float* a, float val, float* out, int size);
+
 #endif

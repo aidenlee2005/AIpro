@@ -207,7 +207,13 @@ class TensorOp(Op):
 
 class EWiseAdd(TensorOp):
     def compute(self, a: MyTensor, b: MyTensor):
-        return MyTensor.from_numpy(a.to_numpy() + b.to_numpy(), device="gpu")
+        if a.size() == 1:
+            return py.scalar_add(b, a.to_numpy().item())
+        if b.size() == 1:
+            return py.scalar_add(a, b.to_numpy().item())
+        if a.shape() != b.shape():
+            return MyTensor.from_numpy(a.to_numpy() + b.to_numpy(), device="gpu")
+        return py.eltwise_add(a, b)
 
     def gradient(self, out_grad: Tensor, node: Tensor):
         return out_grad, out_grad
@@ -222,7 +228,7 @@ class AddScalar(TensorOp):
         self.scalar = scalar
 
     def compute(self, a: MyTensor):
-        return MyTensor.from_numpy(a.to_numpy() + self.scalar, device="gpu")
+        return py.scalar_add(a, self.scalar)
 
     def gradient(self, out_grad: Tensor, node: Tensor):
         return out_grad
@@ -234,7 +240,13 @@ def add_scalar(a, scalar):
 
 class EWiseMul(TensorOp):
     def compute(self, a: MyTensor, b: MyTensor):
-        return MyTensor.from_numpy(a.to_numpy() * b.to_numpy(), device="gpu")
+        if a.size() == 1:
+            return py.scalar_mul(b, a.to_numpy().item())
+        if b.size() == 1:
+            return py.scalar_mul(a, b.to_numpy().item())
+        if a.shape() != b.shape():
+            return MyTensor.from_numpy(a.to_numpy() * b.to_numpy(), device="gpu")
+        return py.eltwise_mul(a, b)
 
     def gradient(self, out_grad: Tensor, node: Tensor):
         lhs, rhs = node.inputs
@@ -250,7 +262,7 @@ class MulScalar(TensorOp):
         self.scalar = scalar
 
     def compute(self, a: MyTensor):
-        return MyTensor.from_numpy(a.to_numpy() * self.scalar, device="gpu")
+        return py.scalar_mul(a, self.scalar)
 
     def gradient(self, out_grad: Tensor, node: Tensor):
         return (out_grad * self.scalar,)
@@ -267,7 +279,7 @@ class PowerScalar(TensorOp):
         self.scalar = scalar
 
     def compute(self, a: MyTensor) -> MyTensor:
-        return MyTensor.from_numpy(a.to_numpy() ** self.scalar, device="gpu")
+        return py.scalar_pow(a, self.scalar)
         
 
     def gradient(self, out_grad, node):
@@ -283,7 +295,11 @@ class EWisePow(TensorOp):
     """逐点乘方"""
 
     def compute(self, a: MyTensor, b: MyTensor) -> MyTensor:
-        return MyTensor.from_numpy(a.to_numpy() ** b.to_numpy(), device="gpu")
+        if b.size() == 1:
+            return py.scalar_pow(a, b.to_numpy().item())
+        if a.shape() != b.shape():
+            return MyTensor.from_numpy(a.to_numpy() ** b.to_numpy(), device="gpu")
+        return py.eltwise_pow(a, b)
 
     def gradient(self, out_grad, node):
         if not isinstance(node.inputs[0], Tensor) or not isinstance(
@@ -304,7 +320,11 @@ class EWiseDiv(TensorOp):
     """逐点相除"""
 
     def compute(self, a: MyTensor, b: MyTensor):
-        return MyTensor.from_numpy(a.to_numpy() / b.to_numpy(), device="gpu")
+        if b.size() == 1:
+            return py.scalar_div(a, b.to_numpy().item())
+        if a.shape() != b.shape():
+            return MyTensor.from_numpy(a.to_numpy() / b.to_numpy(), device="gpu")
+        return py.eltwise_div(a, b)
         
 
     def gradient(self, out_grad, node):
@@ -324,7 +344,7 @@ class DivScalar(TensorOp):
         self.scalar = scalar
 
     def compute(self, a: MyTensor):
-        return MyTensor.from_numpy(a.to_numpy() / self.scalar, device="gpu")
+        return py.scalar_div(a, self.scalar)
         
 
     def gradient(self, out_grad, node):
@@ -489,7 +509,7 @@ def matmul(a, b):
 
 class Negate(TensorOp):
     def compute(self, a: MyTensor):
-        return MyTensor.from_numpy(-a.to_numpy(), device="gpu")
+        return py.scalar_mul(a, -1.0)
 
     def gradient(self, out_grad, node):
         return -out_grad

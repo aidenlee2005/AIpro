@@ -489,6 +489,7 @@ CMakeFiles/py_tensor.dir/pybind_tensor.cpp.o: ../pybind_tensor.cpp \
   /usr/local/cuda/include/driver_functions.h \
   /usr/local/cuda/include/vector_functions.h \
   /usr/local/cuda/include/vector_functions.hpp \
+  ../memory_pool.h \
   ../layers.h \
   /usr/local/cuda/include/cuda.h \
   /usr/local/cuda/include/cublas_v2.h \
@@ -1198,6 +1199,8 @@ CMakeFiles/py_tensor.dir/pybind_tensor.cpp.o: ../pybind_tensor.cpp \
 
 /usr/local/cuda/include/thrust/mr/allocator.h:
 
+/usr/local/cuda/include/thrust/detail/device_ptr.inl:
+
 /usr/local/cuda/include/thrust/detail/config/global_workarounds.h:
 
 /usr/include/c++/11/istream:
@@ -1263,6 +1266,8 @@ CMakeFiles/py_tensor.dir/pybind_tensor.cpp.o: ../pybind_tensor.cpp \
 /usr/local/cuda/include/thrust/system/detail/generic/scan.h:
 
 /usr/local/cuda/include/cub/detail/uninitialized_copy.cuh:
+
+/root/miniconda3/include/python3.12/cpython/methodobject.h:
 
 /usr/local/cuda/include/vector_functions.h:
 
@@ -1678,6 +1683,8 @@ CMakeFiles/py_tensor.dir/pybind_tensor.cpp.o: ../pybind_tensor.cpp \
 
 /usr/include/x86_64-linux-gnu/bits/types/cookie_io_functions_t.h:
 
+../memory_pool.h:
+
 /root/miniconda3/include/python3.12/cpython/pyctype.h:
 
 /usr/include/c++/11/bits/postypes.h:
@@ -1825,14 +1832,6 @@ CMakeFiles/py_tensor.dir/pybind_tensor.cpp.o: ../pybind_tensor.cpp \
 /usr/local/cuda/include/cuda/std/__iterator/concepts.h:
 
 /usr/local/cuda/include/thrust/system/detail/generic/temporary_buffer.inl:
-
-/usr/local/cuda/include/thrust/detail/config/namespace.h:
-
-/usr/local/cuda/include/cub/util_type.cuh:
-
-/root/miniconda3/include/python3.12/dictobject.h:
-
-/usr/local/cuda/include/thrust/iterator/permutation_iterator.h:
 
 /usr/include/locale.h:
 
@@ -2088,10 +2087,6 @@ CMakeFiles/py_tensor.dir/pybind_tensor.cpp.o: ../pybind_tensor.cpp \
 
 /usr/local/cuda/include/cuda/std/__type_traits/negation.h:
 
-/usr/local/cuda/include/thrust/iterator/detail/iterator_category_to_system.h:
-
-/usr/include/x86_64-linux-gnu/bits/floatn.h:
-
 /root/miniconda3/include/python3.12/cpython/dictobject.h:
 
 /root/miniconda3/include/python3.12/fileutils.h:
@@ -2299,8 +2294,6 @@ CMakeFiles/py_tensor.dir/pybind_tensor.cpp.o: ../pybind_tensor.cpp \
 /root/miniconda3/include/python3.12/objimpl.h:
 
 /usr/include/c++/11/bits/hashtable_policy.h:
-
-/root/miniconda3/include/python3.12/cpython/methodobject.h:
 
 /usr/local/cuda/include/cuda/std/__type_traits/is_pointer.h:
 
@@ -2527,6 +2520,18 @@ CMakeFiles/py_tensor.dir/pybind_tensor.cpp.o: ../pybind_tensor.cpp \
 /usr/local/cuda/include/thrust/system/cuda/error.h:
 
 /usr/include/x86_64-linux-gnu/c++/11/bits/cpu_defines.h:
+
+/usr/local/cuda/include/thrust/detail/config/namespace.h:
+
+/usr/include/x86_64-linux-gnu/bits/floatn.h:
+
+/usr/local/cuda/include/thrust/iterator/detail/iterator_category_to_system.h:
+
+/usr/local/cuda/include/cub/util_type.cuh:
+
+/root/miniconda3/include/python3.12/dictobject.h:
+
+/usr/local/cuda/include/thrust/iterator/permutation_iterator.h:
 
 /usr/include/c++/11/debug/debug.h:
 
@@ -3435,5 +3440,3 @@ CMakeFiles/py_tensor.dir/pybind_tensor.cpp.o: ../pybind_tensor.cpp \
 /usr/local/cuda/include/thrust/device_allocator.h:
 
 /usr/local/cuda/include/thrust/device_ptr.h:
-
-/usr/local/cuda/include/thrust/detail/device_ptr.inl:
