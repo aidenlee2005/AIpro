@@ -30,7 +30,7 @@ public:
         if (it != pool.end() && !it->second.empty()) {
             void* ptr = it->second.back();
             it->second.pop_back();
-            cudaMemset(ptr, 0, size); // Debug: Zero out memory
+            // cudaMemset(ptr, 0, size); // Removed for performance
             return ptr;
         }
         

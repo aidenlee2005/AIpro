@@ -50,6 +50,10 @@ class Module:
             attr = getattr(self, attr_name)
             if isinstance(attr, Module):
                 attr.train()
+            elif isinstance(attr, (list, tuple)):
+                for item in attr:
+                    if isinstance(item, Module):
+                        item.train()
 
     def eval(self):
         self.training = False
@@ -57,6 +61,10 @@ class Module:
             attr = getattr(self, attr_name)
             if isinstance(attr, Module):
                 attr.eval()
+            elif isinstance(attr, (list, tuple)):
+                for item in attr:
+                    if isinstance(item, Module):
+                        item.eval()
 
 class Optimizer:
     def __init__(self, params, lr=0.01):

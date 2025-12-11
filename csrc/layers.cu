@@ -1,4 +1,5 @@
 #include "layers.h"
+#include "memory_pool.h"
 #include <cuda.h>
 #include <cublas_v2.h>
 #include <curand.h>
@@ -163,15 +164,15 @@ void forward_fc(float* input, float* output, float* weight, float* bias,
             batch_size, out_features, in_features, 
             1.0f, 0.0f);
         //output(b, o) += ones (b, 1) * bias(1, o)
-        float* d_ones;
-        cudaMalloc(&d_ones, batch_size * sizeof(float));
-        cudaMemset(d_ones, 0, batch_size * sizeof(float));
+        size_t ones_size = batch_size * sizeof(float);
+        float* d_ones = (float*)MemoryPool::instance().allocate(ones_size);
+        // cudaMemset(d_ones, 0, batch_size * sizeof(float)); // Removed redundant memset
         fill_elements<<<(batch_size + 255)/256, 256>>>(d_ones, batch_size, 1.0f);
         gemm_gpu(TransposeType::NoTranspose, TransposeType::NoTranspose,
             d_ones, bias, output, 
             batch_size, out_features, 1, 
             1.0f, 1.0f);
-        cudaFree(d_ones);
+        MemoryPool::instance().deallocate(d_ones, ones_size);
     }
 
 void backward_fc(float* input, float* weight, float* bias,
@@ -188,15 +189,15 @@ void backward_fc(float* input, float* weight, float* bias,
             in_features, out_features, batch_size, 
             1.0f, 0.0f);
         // grad_bias(1, o) = ones(1, b) * grad_output(b, o)
-        float* d_ones;
-        cudaMalloc(&d_ones, batch_size * sizeof(float));
-        cudaMemset(d_ones, 0, batch_size * sizeof(float));
+        size_t ones_size = batch_size * sizeof(float);
+        float* d_ones = (float*)MemoryPool::instance().allocate(ones_size);
+        // cudaMemset(d_ones, 0, batch_size * sizeof(float)); // Removed redundant memset
         fill_elements<<<(batch_size + 255)/256, 256>>>(d_ones, batch_size, 1.0f);
         gemm_gpu(TransposeType::Transpose, TransposeType::NoTranspose,
             d_ones, grad_output, grad_bias, 
             1, out_features, batch_size, 
             1.0f, 0.0f);
-        cudaFree(d_ones);
+        MemoryPool::instance().deallocate(d_ones, ones_size);
     }
     
 
@@ -377,12 +378,13 @@ void forward_conv2d(float* input, float* output, float* filter,
     //Assume stride=1, padding=1, kernel_size=3
     int col_h = height * width;
     int col_w = 3 * 3 * in_channels;
-    float* d_input_col;
-    cudaMalloc(&d_input_col, batch_size * col_h * col_w * sizeof(float));
+    
+    size_t input_col_size = (size_t)batch_size * col_h * col_w * sizeof(float);
+    float* d_input_col = (float*)MemoryPool::instance().allocate(input_col_size);
     im2col(input, d_input_col, batch_size, in_channels, height, width, stream);
 
-    float* d_output_col;
-    cudaMalloc(&d_output_col, batch_size * col_h * out_channels * sizeof(float));
+    size_t output_col_size = (size_t)batch_size * col_h * out_channels * sizeof(float);
+    float* d_output_col = (float*)MemoryPool::instance().allocate(output_col_size);
 
     //outcol(batch_size, col_h, out_channels) = input_col(batchsize, col_h, col_w) * filter(out_channels, in_channels, 3, 3) ^T
     //outcol((batch_size*col_h), out_channels) = input_col((batchsize*col_h), col_w) * filter(out_channels, (in_channels*3*3)) ^T
@@ -392,8 +394,9 @@ void forward_conv2d(float* input, float* output, float* filter,
         1.0f, 0.0f, stream);
     //move outcol(batch_size, height, weight out_channels) to output(batch_size, out_channels, height, width)
     nhwc_to_nchw(d_output_col, output, batch_size, out_channels, height, width, stream);
-    cudaFree(d_output_col);
-    cudaFree(d_input_col);
+    
+    MemoryPool::instance().deallocate(d_output_col, output_col_size);
+    MemoryPool::instance().deallocate(d_input_col, input_col_size);
 }
 
 void backward_conv2d(float* input, float* filter,
@@ -405,47 +408,14 @@ void backward_conv2d(float* input, float* filter,
     int col_w = 3 * 3 * in_channels;
 
     // 1) im2col(input) -> d_input_col
-    float* d_input_col = nullptr;
-    cudaMalloc(&d_input_col, (size_t)batch_size * col_h * col_w * sizeof(float));
+    size_t input_col_size = (size_t)batch_size * col_h * col_w * sizeof(float);
+    float* d_input_col = (float*)MemoryPool::instance().allocate(input_col_size);
     im2col(input, d_input_col, batch_size, in_channels, height, width, stream);
 
     // 2) convert grad_output (NCHW) -> outcol (batch*col_h, out_channels)
-    float* d_grad_outcol = nullptr;
-    cudaMalloc(&d_grad_outcol, (size_t)batch_size * col_h * out_channels * sizeof(float));
+    size_t grad_outcol_size = (size_t)batch_size * col_h * out_channels * sizeof(float);
+    float* d_grad_outcol = (float*)MemoryPool::instance().allocate(grad_outcol_size);
     nchw_to_nhwc(grad_output, d_grad_outcol, batch_size, out_channels, height, width, stream);
-
-// // 调试片段：在调用 nchw_to_nhwc(...) 后插入（仅用于调试）
-// cudaStreamSynchronize(stream); // 确保转换完成
-
-// auto read_dev_one = [](const float* dptr, size_t idx){
-//     float v=0.0f;
-//     cudaMemcpy(&v, dptr + idx, sizeof(float), cudaMemcpyDeviceToHost);
-//     return v;
-// };
-
-// int B = batch_size;
-// int C = out_channels;
-// int H = height;
-// int W = width;
-// int col_h_ = H * W;
-
-// // 检查若干随机或固定位置
-// std::vector<std::tuple<int,int,int,int>> checks = {
-//     {0, 0, 0, 0},
-//     {0, 1, 0, 1},
-//     {0, C-1, H-1, W-1},
-//     {B-1, C-1, H-1, W-1}
-// };
-// for (auto &t : checks){
-//     int b,oc,h,w;
-//     std::tie(b,oc,h,w) = t;
-//     size_t nchw_idx   = ((size_t)b * C + oc) * H * W + (size_t)h * W + w;
-//     size_t outcol_idx = ((size_t)b * col_h_ + (size_t)h * W + w) * C + oc;
-//     float v_nchw = read_dev_one(grad_output, nchw_idx);
-//     float v_out  = read_dev_one(d_grad_outcol, outcol_idx);
-//     printf("check (b=%d,oc=%d,h=%d,w=%d) nchw[%zu]=%f outcol[%zu]=%f\n",
-//            b,oc,h,w, nchw_idx, v_nchw, outcol_idx, v_out);
-// }
 
     // 3) dW = d_grad_outcol^T * input_col
     // shapes: d_grad_outcol (batch*col_h, out_channels), d_input_col (batch*col_h, col_w)
@@ -455,23 +425,23 @@ void backward_conv2d(float* input, float* filter,
         1.0f, 0.0f, stream);
 
     // 4) dInput: grad_input_col = d_grad_outcol * filter
-    float* d_grad_input_col = nullptr;
-    cudaMalloc(&d_grad_input_col, (size_t)batch_size * col_h * col_w * sizeof(float));
+    size_t grad_input_col_size = (size_t)batch_size * col_h * col_w * sizeof(float);
+    float* d_grad_input_col = (float*)MemoryPool::instance().allocate(grad_input_col_size);
 
     gemm_gpu(TransposeType::NoTranspose, TransposeType::NoTranspose,
         d_grad_outcol, filter, d_grad_input_col,
         batch_size * col_h, col_w, out_channels,
         1.0f, 0.0f, stream);
     // ensure GEMM finished before using d_grad_input_col on the same stream
-    cudaStreamSynchronize(stream);
+    // cudaStreamSynchronize(stream); // Removed: MemoryPool handles reuse, no need to sync if we don't free immediately to OS
 
     // 5) col2im: accumulate grad_input_col -> grad_input (NCHW)
     col2im(d_grad_input_col, grad_input, batch_size, in_channels, height, width, stream);
 
     // 6) free temporaries
-    cudaFree(d_grad_input_col);
-    cudaFree(d_input_col);
-    cudaFree(d_grad_outcol);
+    MemoryPool::instance().deallocate(d_grad_input_col, grad_input_col_size);
+    MemoryPool::instance().deallocate(d_input_col, input_col_size);
+    MemoryPool::instance().deallocate(d_grad_outcol, grad_outcol_size);
 }
 
 // ===========Maxpool=============
@@ -642,16 +612,15 @@ void forward_cross_entropy(const float* input, const float* labels, float* loss,
     // labels: (batch_size)
     // loss: pointer to single float (output)
 
-    float* d_softmax = nullptr;
-    size_t total = (size_t)batch_size * num_classes;
-    cudaMalloc(&d_softmax, total * sizeof(float));
+    size_t softmax_size = (size_t)batch_size * num_classes * sizeof(float);
+    float* d_softmax = (float*)MemoryPool::instance().allocate(softmax_size);
 
     // logits -> softmax
     forward_softmax(input, d_softmax, batch_size, num_classes, stream);
 
     float h_zero = 0.0f;
-    float* d_loss = nullptr;
-    cudaMalloc(&d_loss, sizeof(float));
+    size_t loss_size = sizeof(float);
+    float* d_loss = (float*)MemoryPool::instance().allocate(loss_size);
     cudaMemcpyAsync(d_loss, &h_zero, sizeof(float), cudaMemcpyHostToDevice, stream);
 
     // launch one block per sample (softmax_forward already uses this convention)
@@ -667,8 +636,8 @@ void forward_cross_entropy(const float* input, const float* labels, float* loss,
     cudaStreamSynchronize(stream);
     *loss = h_loss / batch_size;
 
-    cudaFree(d_loss);
-    cudaFree(d_softmax);
+    MemoryPool::instance().deallocate(d_loss, loss_size);
+    MemoryPool::instance().deallocate(d_softmax, softmax_size);
 }
 
 __global__ void subtract_labels(float* grad_input, const float* labels, int batch_size, int num_classes){
@@ -979,10 +948,9 @@ void eltwise_pow_broadcast(const float* a, const float* b, float* out, int size,
 
 // ===========Batchnorm=============
 
-// Input: (N, C, H, W)
-// Output: mean (C), var (C)
-__global__ void batch_norm_collect_statistics_kernel(
-    const float* input, float* mean, float* var,
+// Pass 1: Compute Mean
+__global__ void batch_norm_collect_mean_kernel(
+    const float* input, float* mean,
     int batch_size, int channels, int height, int width) {
     
     int c = blockIdx.x;
@@ -991,36 +959,65 @@ __global__ void batch_norm_collect_statistics_kernel(
     int num_elements = batch_size * spatial_size;
     
     float sum = 0.0f;
-    float sum_sq = 0.0f;
+    
+    for (int i = tid; i < num_elements; i += blockDim.x) {
+        int n = i / spatial_size;
+        int hw = i % spatial_size;
+        int idx = n * channels * spatial_size + c * spatial_size + hw;
+        sum += input[idx];
+    }
+    
+    __shared__ float s_sum[256];
+    s_sum[tid] = sum;
+    __syncthreads();
+    
+    for (int stride = blockDim.x / 2; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            s_sum[tid] += s_sum[tid + stride];
+        }
+        __syncthreads();
+    }
+    
+    if (tid == 0) {
+        mean[c] = s_sum[0] / num_elements;
+    }
+}
+
+// Pass 2: Compute Variance
+__global__ void batch_norm_collect_variance_kernel(
+    const float* input, const float* mean, float* var,
+    int batch_size, int channels, int height, int width) {
+    
+    int c = blockIdx.x;
+    int tid = threadIdx.x;
+    int spatial_size = height * width;
+    int num_elements = batch_size * spatial_size;
+    
+    float m = mean[c];
+    float sum_sq_diff = 0.0f;
     
     for (int i = tid; i < num_elements; i += blockDim.x) {
         int n = i / spatial_size;
         int hw = i % spatial_size;
         int idx = n * channels * spatial_size + c * spatial_size + hw;
         float val = input[idx];
-        sum += val;
-        sum_sq += val * val;
+        float diff = val - m;
+        sum_sq_diff += diff * diff;
     }
     
-    __shared__ float s_sum[256]; //shared memory
-    __shared__ float s_sum_sq[256];
-    
-    s_sum[tid] = sum;
-    s_sum_sq[tid] = sum_sq;
+    __shared__ float s_sum[256];
+    s_sum[tid] = sum_sq_diff;
     __syncthreads();
     
     for (int stride = blockDim.x / 2; stride > 0; stride >>= 1) {
         if (tid < stride) {
             s_sum[tid] += s_sum[tid + stride];
-            s_sum_sq[tid] += s_sum_sq[tid + stride];
         }
         __syncthreads();
     }
     
     if (tid == 0) {
-        float m = s_sum[0] / num_elements;
-        mean[c] = m;
-        var[c] = s_sum_sq[0] / num_elements - m * m;
+        var[c] = s_sum[0] / num_elements;
     }
 }
 
@@ -1095,12 +1092,13 @@ __global__ void batch_norm_save_stats_kernel(
 __global__ void update_running_stats_kernel(
     float* running_mean, float* running_var,
     const float* current_mean, const float* current_var,
-    float momentum, int channels) {
+    float momentum, int channels, int N) {
     
     int c = blockIdx.x * blockDim.x + threadIdx.x;
     if (c < channels) {
+        float unbiased_var = current_var[c] * N / (float)(N - 1);
         running_mean[c] = (1.0f - momentum) * running_mean[c] + momentum * current_mean[c];
-        running_var[c] = (1.0f - momentum) * running_var[c] + momentum * current_var[c];
+        running_var[c] = (1.0f - momentum) * running_var[c] + momentum * unbiased_var;
     }
 }
 
@@ -1112,13 +1110,15 @@ void batch_norm_forward_training(
     int batch_size, int channels, int height, int width,
     float momentum, float eps) {
     
-    thrust::device_vector<float> temp_mean(channels);
-    thrust::device_vector<float> temp_var(channels);
+    size_t size = channels * sizeof(float);
+    float *d_mean = (float*)MemoryPool::instance().allocate(size);
+    float *d_var = (float*)MemoryPool::instance().allocate(size);
     
-    float* d_mean = thrust::raw_pointer_cast(temp_mean.data());
-    float* d_var = thrust::raw_pointer_cast(temp_var.data());
-    
-    batch_norm_collect_statistics_kernel<<<channels, 256>>>(
+    // Two-pass algorithm for numerical stability
+    batch_norm_collect_mean_kernel<<<channels, 256>>>(
+        input, d_mean, batch_size, channels, height, width);
+        
+    batch_norm_collect_variance_kernel<<<channels, 256>>>(
         input, d_mean, d_var, batch_size, channels, height, width);
         
     batch_norm_forward_kernel<<<(batch_size * channels * height * width + 255) / 256, 256>>>(
@@ -1127,8 +1127,15 @@ void batch_norm_forward_training(
     batch_norm_save_stats_kernel<<<(channels + 255) / 256, 256>>>(
         d_mean, d_var, save_mean, save_inv_std, channels, eps);
         
+    int num_elements = batch_size * height * width;
     update_running_stats_kernel<<<(channels + 255) / 256, 256>>>(
-        running_mean, running_var, d_mean, d_var, momentum, channels);
+        running_mean, running_var, d_mean, d_var, momentum, channels, num_elements);
+        
+    // Debug: Add sync to rule out race conditions
+    cudaDeviceSynchronize();
+
+    MemoryPool::instance().deallocate(d_mean, size);
+    MemoryPool::instance().deallocate(d_var, size);
 }
 
 void batch_norm_forward_inference(
@@ -1243,7 +1250,7 @@ void batch_norm_backward(
         
     batch_norm_backward_input_kernel<<<(batch_size * channels * height * width + 255) / 256, 256>>>(
         grad_output, input, grad_input, save_mean, save_inv_std, weight,
-        grad_weight, grad_bias, batch_size, channels, height, width);
+        grad_bias, grad_weight, batch_size, channels, height, width);
 }
 
 // ===========Dropout=============

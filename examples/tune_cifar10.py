@@ -69,34 +69,59 @@ def get_batch(X, Y, batch_size, device="gpu"):
         
         yield batch_x, batch_y
 
-def create_model(dropout_p=0.5, device="gpu"):
+def create_model(dropout_p=0.0, device="gpu"):
+    # VGG-style deeper model for >80% accuracy
     model = nn.Sequential(
-        nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1, device=device),
-        nn.BatchNorm2d(16, device=device),
-        nn.ReLU(),
-        nn.MaxPool2d(kernel_size=2), # 32 -> 16
-        nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1, device=device),
+        # Block 1
+        nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1, device=device),
         nn.BatchNorm2d(32, device=device),
         nn.ReLU(),
+        nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1, device=device),
+        nn.BatchNorm2d(32, device=device),
+        nn.ReLU(),
+        nn.MaxPool2d(kernel_size=2), # 32 -> 16
+
+        # Block 2
+        nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1, device=device),
+        nn.BatchNorm2d(64, device=device),
+        nn.ReLU(),
+        nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1, device=device),
+        nn.BatchNorm2d(64, device=device),
+        nn.ReLU(),
         nn.MaxPool2d(kernel_size=2), # 16 -> 8
+
+        # Block 3
+        nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1, device=device),
+        nn.BatchNorm2d(128, device=device),
+        nn.ReLU(),
+        nn.MaxPool2d(kernel_size=2), # 8 -> 4
+        
         nn.Flatten(),
-        nn.Dropout(dropout_p, device=device),
-        nn.Linear(32 * 8 * 8, 10, device=device)
+        nn.Linear(128 * 4 * 4, 256, device=device),
+        nn.ReLU(),
+        nn.Dropout(dropout_p, device=device) if dropout_p > 0 else nn.Sequential(), # Optional Dropout
+        nn.Linear(256, 10, device=device)
     )
     return model
 
 def train_one_config(config, X_train, Y_train, X_test, Y_test, device="gpu"):
     lr = config['lr']
     batch_size = config['batch_size']
-    dropout_p = config['dropout_p']
+    dropout_p = config.get('dropout_p', 0.0) # Default to 0 if not present
     weight_decay = config['weight_decay']
     epochs = config['epochs']
+    optimizer_name = config.get('optimizer', 'SGD')
+    momentum = config.get('momentum', 0.0)
     
-    print(f"\n[Config] LR: {lr}, BS: {batch_size}, Drop: {dropout_p}, WD: {weight_decay}")
+    print(f"\n[Config] Opt: {optimizer_name}, LR: {lr}, BS: {batch_size}, Mom: {momentum}, WD: {weight_decay}")
     
     model = create_model(dropout_p, device)
     criterion = nn.CrossEntropyLoss()
-    optimizer = nn.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=weight_decay)
+    
+    if optimizer_name == 'Adam':
+        optimizer = nn.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+    else:
+        optimizer = nn.SGD(model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay)
     
     best_acc = 0.0
     total_time = 0
@@ -162,20 +187,15 @@ def main():
     print(f"Train data: {X_train.shape}")
     
     # Define search space
+    # Time constraint: ~40s/epoch * 20 epochs = 800s (~13 mins) per run.
     configs = [
-        {'lr': 0.01, 'batch_size': 64, 'dropout_p': 0.5, 'weight_decay': 1e-4, 'epochs': 10}, # Baseline
-        {'lr': 0.02, 'batch_size': 64, 'dropout_p': 0.5, 'weight_decay': 1e-4, 'epochs': 10}, # High LR
-        {'lr': 0.005, 'batch_size': 64, 'dropout_p': 0.5, 'weight_decay': 1e-4, 'epochs': 10}, # Low LR
-        {'lr': 0.01, 'batch_size': 32, 'dropout_p': 0.5, 'weight_decay': 1e-4, 'epochs': 10}, # Small Batch
-        {'lr': 0.01, 'batch_size': 128, 'dropout_p': 0.5, 'weight_decay': 1e-4, 'epochs': 10}, # Large Batch
-        {'lr': 0.01, 'batch_size': 64, 'dropout_p': 0.25, 'weight_decay': 1e-4, 'epochs': 10}, # Low Dropout
-        {'lr': 0.01, 'batch_size': 64, 'dropout_p': 0.0, 'weight_decay': 1e-4, 'epochs': 10}, # No Dropout
-        {'lr': 0.01, 'batch_size': 64, 'dropout_p': 0.5, 'weight_decay': 0.0, 'epochs': 10}, # No WD
+        # Config 1: Adam (Generally more stable for deep nets)
+        {'optimizer': 'Adam', 'lr': 0.001, 'batch_size': 64, 'momentum': 0.0, 'weight_decay': 1e-4, 'epochs': 20, 'dropout_p': 0.0},
     ]
     
     results = []
     start_total_time = time.time()
-    time_limit = 30 * 60 # 30 minutes
+    time_limit = 40 * 60 # 40 minutes
     
     print(f"Starting hyperparameter tuning (Time limit: {time_limit/60} mins)...")
     
@@ -193,17 +213,19 @@ def main():
         results.append(result)
         
     # Print Summary
-    print("\n" + "="*80)
-    print(f"{'LR':<8} | {'BS':<6} | {'Drop':<6} | {'WD':<8} | {'Epochs':<6} | {'Best Acc':<10} | {'Time(s)':<8}")
-    print("-" * 80)
+    print("\n" + "="*100)
+    print(f"{'Opt':<6} | {'LR':<8} | {'BS':<6} | {'Mom':<6} | {'WD':<8} | {'Epochs':<6} | {'Best Acc':<10} | {'Time(s)':<8}")
+    print("-" * 100)
     
     # Sort by accuracy descending
     results.sort(key=lambda x: x['best_acc'], reverse=True)
     
     for r in results:
-        print(f"{r['lr']:<8} | {r['batch_size']:<6} | {r['dropout_p']:<6} | {r['weight_decay']:<8} | {r['epochs']:<6} | {r['best_acc']:.4f}     | {r['duration']:.1f}")
-    print("="*80)
-    print(f"Best Configuration: LR={results[0]['lr']}, BS={results[0]['batch_size']}, Drop={results[0]['dropout_p']}")
+        opt = r.get('optimizer', 'SGD')
+        mom = r.get('momentum', 0.0)
+        print(f"{opt:<6} | {r['lr']:<8} | {r['batch_size']:<6} | {mom:<6} | {r['weight_decay']:<8} | {r['epochs']:<6} | {r['best_acc']:.4f}     | {r['duration']:.1f}")
+    print("="*100)
+    print(f"Best Configuration: Opt={results[0].get('optimizer', 'SGD')}, LR={results[0]['lr']}, BS={results[0]['batch_size']}")
 
 if __name__ == "__main__":
     main()

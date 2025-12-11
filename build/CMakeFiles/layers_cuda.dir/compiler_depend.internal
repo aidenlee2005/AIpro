@@ -1099,4 +1099,17 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o
  /usr/local/cuda/include/thrust/system/cuda/detail/gather.h
  /usr/local/cuda/include/thrust/system/detail/generic/gather.h
  /usr/local/cuda/include/thrust/system/detail/generic/gather.inl
+ /root/autodl-tmp/csrc/memory_pool.h
+ /usr/include/c++/11/map
+ /usr/include/c++/11/bits/stl_tree.h
+ /usr/include/c++/11/bits/stl_map.h
+ /usr/include/c++/11/bits/stl_multimap.h
+ /usr/include/c++/11/bits/erase_if.h
+ /usr/include/c++/11/mutex
+ /usr/include/c++/11/chrono
+ /usr/include/c++/11/ratio
+ /usr/include/c++/11/ctime
+ /usr/include/c++/11/bits/parse_numbers.h
+ /usr/include/c++/11/bits/std_mutex.h
+ /usr/include/c++/11/bits/unique_lock.h
 
