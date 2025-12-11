@@ -104,7 +104,7 @@ def create_model(dropout_p=0.0, device="gpu"):
     )
     return model
 
-def train_one_config(config, X_train, Y_train, X_test, Y_test, device="gpu"):
+def train_one_config(config, X_train, Y_train, X_test, Y_test, device="gpu", log_file=None):
     lr = config['lr']
     batch_size = config['batch_size']
     dropout_p = config.get('dropout_p', 0.0) # Default to 0 if not present
@@ -113,7 +113,11 @@ def train_one_config(config, X_train, Y_train, X_test, Y_test, device="gpu"):
     optimizer_name = config.get('optimizer', 'SGD')
     momentum = config.get('momentum', 0.0)
     
-    print(f"\n[Config] Opt: {optimizer_name}, LR: {lr}, BS: {batch_size}, Mom: {momentum}, WD: {weight_decay}")
+    msg = f"\n[Config] Opt: {optimizer_name}, LR: {lr}, BS: {batch_size}, Mom: {momentum}, WD: {weight_decay}, Drop: {dropout_p}"
+    print(msg)
+    if log_file:
+        log_file.write(msg + "\n")
+        log_file.flush()
     
     model = create_model(dropout_p, device)
     criterion = nn.CrossEntropyLoss()
@@ -127,6 +131,13 @@ def train_one_config(config, X_train, Y_train, X_test, Y_test, device="gpu"):
     total_time = 0
     
     for epoch in range(epochs):
+        # Simple LR Decay
+        if epoch == 30 or epoch == 40:
+            optimizer.lr *= 0.1
+            print(f"  [LR Decay] LR set to {optimizer.lr}")
+            if log_file:
+                log_file.write(f"  [LR Decay] LR set to {optimizer.lr}\n")
+
         model.train()
         epoch_start = time.time()
         total_loss = 0
@@ -168,7 +179,11 @@ def train_one_config(config, X_train, Y_train, X_test, Y_test, device="gpu"):
         test_acc = test_correct / test_total
         best_acc = max(best_acc, test_acc)
         
-        print(f"  Ep {epoch+1}/{epochs} | Loss: {avg_loss:.4f} | TrAcc: {train_acc:.4f} | TeAcc: {test_acc:.4f} | Time: {epoch_time:.2f}s")
+        msg = f"  Ep {epoch+1}/{epochs} | Loss: {avg_loss:.4f} | TrAcc: {train_acc:.4f} | TeAcc: {test_acc:.4f} | Time: {epoch_time:.2f}s"
+        print(msg)
+        if log_file:
+            log_file.write(msg + "\n")
+            log_file.flush()
         
     return best_acc, total_time
 
@@ -187,45 +202,63 @@ def main():
     print(f"Train data: {X_train.shape}")
     
     # Define search space
-    # Time constraint: ~40s/epoch * 20 epochs = 800s (~13 mins) per run.
+    # Time constraint: ~40s/epoch * 50 epochs = 2000s (~33 mins) per run.
     configs = [
-        # Config 1: Adam (Generally more stable for deep nets)
-        {'optimizer': 'Adam', 'lr': 0.001, 'batch_size': 64, 'momentum': 0.0, 'weight_decay': 1e-4, 'epochs': 20, 'dropout_p': 0.0},
+        # Best Config from previous run: Adam + Dropout 0.3
+        {'optimizer': 'Adam', 'lr': 0.001, 'batch_size': 64, 'momentum': 0.0, 'weight_decay': 1e-4, 'epochs': 50, 'dropout_p': 0.3},
     ]
     
     results = []
     start_total_time = time.time()
-    time_limit = 40 * 60 # 40 minutes
+    time_limit = 120 * 60 # 120 minutes
     
-    print(f"Starting hyperparameter tuning (Time limit: {time_limit/60} mins)...")
+    print(f"Starting training with best configuration (Time limit: {time_limit/60} mins)...")
     
-    for i, config in enumerate(configs):
-        if time.time() - start_total_time > time_limit:
-            print("Time limit reached. Stopping tuning.")
-            break
+    log_filename = "tuning_results.txt"
+    with open(log_filename, "w") as log_file:
+        log_file.write(f"Starting Tuning at {time.ctime()}\n")
+        
+        for i, config in enumerate(configs):
+            if time.time() - start_total_time > time_limit:
+                print("Time limit reached. Stopping tuning.")
+                break
+                
+            msg = f"--- Running Config {i+1}/{len(configs)} ---"
+            print(msg)
+            log_file.write(msg + "\n")
             
-        print(f"--- Running Config {i+1}/{len(configs)} ---")
-        acc, duration = train_one_config(config, X_train, Y_train, X_test, Y_test)
+            acc, duration = train_one_config(config, X_train, Y_train, X_test, Y_test, device="gpu", log_file=log_file)
+            
+            result = config.copy()
+            result['best_acc'] = acc
+            result['duration'] = duration
+            results.append(result)
+            
+        # Print Summary
+        print("\n" + "="*100)
+        print(f"{'Opt':<6} | {'LR':<8} | {'BS':<6} | {'Mom':<6} | {'WD':<8} | {'Drop':<6} | {'Epochs':<6} | {'Best Acc':<10} | {'Time(s)':<8}")
+        print("-" * 100)
         
-        result = config.copy()
-        result['best_acc'] = acc
-        result['duration'] = duration
-        results.append(result)
+        log_file.write("\n" + "="*100 + "\n")
+        log_file.write(f"{'Opt':<6} | {'LR':<8} | {'BS':<6} | {'Mom':<6} | {'WD':<8} | {'Drop':<6} | {'Epochs':<6} | {'Best Acc':<10} | {'Time(s)':<8}\n")
+        log_file.write("-" * 100 + "\n")
         
-    # Print Summary
-    print("\n" + "="*100)
-    print(f"{'Opt':<6} | {'LR':<8} | {'BS':<6} | {'Mom':<6} | {'WD':<8} | {'Epochs':<6} | {'Best Acc':<10} | {'Time(s)':<8}")
-    print("-" * 100)
-    
-    # Sort by accuracy descending
-    results.sort(key=lambda x: x['best_acc'], reverse=True)
-    
-    for r in results:
-        opt = r.get('optimizer', 'SGD')
-        mom = r.get('momentum', 0.0)
-        print(f"{opt:<6} | {r['lr']:<8} | {r['batch_size']:<6} | {mom:<6} | {r['weight_decay']:<8} | {r['epochs']:<6} | {r['best_acc']:.4f}     | {r['duration']:.1f}")
-    print("="*100)
-    print(f"Best Configuration: Opt={results[0].get('optimizer', 'SGD')}, LR={results[0]['lr']}, BS={results[0]['batch_size']}")
+        # Sort by accuracy descending
+        results.sort(key=lambda x: x['best_acc'], reverse=True)
+        
+        for r in results:
+            opt = r.get('optimizer', 'SGD')
+            mom = r.get('momentum', 0.0)
+            drop = r.get('dropout_p', 0.0)
+            line = f"{opt:<6} | {r['lr']:<8} | {r['batch_size']:<6} | {mom:<6} | {r['weight_decay']:<8} | {drop:<6} | {r['epochs']:<6} | {r['best_acc']:.4f}     | {r['duration']:.1f}"
+            print(line)
+            log_file.write(line + "\n")
+            
+        print("="*100)
+        log_file.write("="*100 + "\n")
+        best_config_msg = f"Best Configuration: Opt={results[0].get('optimizer', 'SGD')}, LR={results[0]['lr']}, Drop={results[0].get('dropout_p', 0.0)}"
+        print(best_config_msg)
+        log_file.write(best_config_msg + "\n")
 
 if __name__ == "__main__":
     main()

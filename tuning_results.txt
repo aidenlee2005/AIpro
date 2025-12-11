@@ -1,0 +1,4 @@
+Starting Tuning at Fri Dec 12 01:04:46 2025
+--- Running Config 1/1 ---
+
+[Config] Model: ResNet18, Opt: Adam, LR: 0.001, BS: 64, Mom: 0.0, WD: 0.0001, Drop: 0.0
