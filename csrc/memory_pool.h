@@ -38,9 +38,6 @@ public:
         cudaError_t err = cudaMalloc(&ptr, size);
         if (err != cudaSuccess) {
             std::cerr << "cudaMalloc failed for size " << size << ": " << cudaGetErrorString(err) << std::endl;
-            // Try to free some memory from pool and retry?
-            // For now, just return nullptr or let it crash/throw.
-            // In a real framework, we might want to empty the cache and retry.
             return nullptr; 
         }
         return ptr;

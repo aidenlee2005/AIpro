@@ -129,4 +129,11 @@ void eltwise_mul_broadcast(const float* a, const float* b, float* out, int size,
 void eltwise_div_broadcast(const float* a, const float* b, float* out, int size, int ndim, TensorStrides out_strides, TensorStrides a_strides, TensorStrides b_strides);
 void eltwise_pow_broadcast(const float* a, const float* b, float* out, int size, int ndim, TensorStrides out_strides, TensorStrides a_strides, TensorStrides b_strides);
 
+// Dropout
+void fill_random_uniform(float* data, int size, unsigned long long seed);
+void dropout_forward(const float* in, float* out, float* mask, float* rand, 
+                     int size, float prob, cudaStream_t stream);
+void dropout_backward(const float* grad_out, const float* mask, float* grad_in, 
+                      int size, float prob, cudaStream_t stream);
+
 #endif

@@ -73,9 +73,10 @@ python tests/pybind_basisTest.py
 ```
 
 ### 算子正确性测试
-测试各个 CUDA 算子（如 Conv2d, MatMul, ReLU 等）的计算结果是否与 PyTorch/Numpy 一致。
+测试各个 CUDA 算子（如 Conv2d, MatMul, ReLU, BatchNorm, Dropout 等）的计算结果是否与 PyTorch/Numpy 一致。
 ```bash
 python tests/pybind_opTest.py
+python tests/test_dropout_custom.py
 ```
 
 ### 完整网络测试
@@ -83,6 +84,13 @@ python tests/pybind_opTest.py
 ```bash
 python tests/test_cnn_custom.py
 ```
+
+## 4. 超参数调优
+运行以下脚本进行超参数搜索（约30分钟）：
+```bash
+python examples/tune_cifar10.py
+```
+该脚本会尝试不同的学习率、Batch Size和Dropout率组合，并输出最优配置。
 
 ## 5. 项目结构
 

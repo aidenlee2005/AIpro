@@ -43,7 +43,6 @@ class CIFAR10Dataset:
         
         # Normalize
         self.X = self.X / 255.0
-        # Mean/Std normalization (optional but recommended)
         mean = np.array([0.4914, 0.4822, 0.4465]).reshape(1, 3, 1, 1)
         std = np.array([0.2023, 0.1994, 0.2010]).reshape(1, 3, 1, 1)
         self.X = (self.X - mean) / std
@@ -52,7 +51,6 @@ class CIFAR10Dataset:
         return self.X.shape[0]
 
     def __getitem__(self, idx):
-        # Return numpy arrays, convert to Tensor in DataLoader or loop
         return self.X[idx], self.Y[idx]
 
 def get_batch(X, Y, batch_size, device="gpu"):
@@ -100,6 +98,7 @@ def train():
         nn.ReLU(),
         nn.MaxPool2d(kernel_size=2), # 16 -> 8
         nn.Flatten(),
+        # nn.Dropout(0.5),
         nn.Linear(32 * 8 * 8, 10, device=device)
     )
     

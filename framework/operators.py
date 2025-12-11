@@ -567,20 +567,11 @@ class Conv2D(TensorOp):
 
     def gradient(self, out_grad: Tensor, node: Tensor):
         input, weight = node.inputs[0], node.inputs[1]
-        # Initialize gradients with zeros (using numpy for safety as py_tensor might not zero-init)
-        # Assuming device is same as input
-        dev = "gpu" if input.realize_cached_data().is_gpu() else "cpu"
-        
-        # We need shapes to create zero tensors. 
-        # input and weight are Values, realize_cached_data() gives MyTensor
         input_t = input.realize_cached_data()
         weight_t = weight.realize_cached_data()
         out_grad_t = out_grad.realize_cached_data()
         
-        grad_input_t = MyTensor.from_numpy(np.zeros(input_t.shape(), dtype=np.float32), device=dev)
-        grad_weight_t = MyTensor.from_numpy(np.zeros(weight_t.shape(), dtype=np.float32), device=dev)
-        
-        py.conv2d_backward(out_grad_t, input_t, weight_t, grad_input_t, grad_weight_t)
+        grad_input_t, grad_weight_t = py.conv2d_backward(out_grad_t, input_t, weight_t)
         
         return Tensor.make_const(grad_input_t), Tensor.make_const(grad_weight_t)
 
@@ -597,14 +588,10 @@ class MaxPool2D(TensorOp):
         input = node.inputs[0]
         input_t = input.realize_cached_data()
         out_grad_t = out_grad.realize_cached_data()
-        dev = "gpu" if input_t.is_gpu() else "cpu"
         
-        # Recompute mask because forward didn't save it (limitation of current binding)
         mask_t = py.max_pool2d_forward_mask(input_t)
         
-        grad_input_t = MyTensor.from_numpy(np.zeros(input_t.shape(), dtype=np.float32), device=dev)
-        
-        py.max_pool2d_backward(out_grad_t, mask_t, input_t, grad_input_t)
+        grad_input_t = py.max_pool2d_backward(out_grad_t, mask_t, input_t)
         
         return Tensor.make_const(grad_input_t)
 
@@ -623,13 +610,8 @@ class FC(TensorOp):
         weight_t = weight.realize_cached_data()
         bias_t = bias.realize_cached_data()
         out_grad_t = out_grad.realize_cached_data()
-        dev = "gpu" if input_t.is_gpu() else "cpu"
         
-        grad_input_t = MyTensor.from_numpy(np.zeros(input_t.shape(), dtype=np.float32), device=dev)
-        grad_weight_t = MyTensor.from_numpy(np.zeros(weight_t.shape(), dtype=np.float32), device=dev)
-        grad_bias_t = MyTensor.from_numpy(np.zeros(bias_t.shape(), dtype=np.float32), device=dev)
-        
-        py.fc_backward(out_grad_t, input_t, weight_t, bias_t, grad_input_t, grad_weight_t, grad_bias_t)
+        grad_input_t, grad_weight_t, grad_bias_t = py.fc_backward(out_grad_t, input_t, weight_t, bias_t)
         
         return Tensor.make_const(grad_input_t), Tensor.make_const(grad_weight_t), Tensor.make_const(grad_bias_t)
 
@@ -642,32 +624,15 @@ class CrossEntropy(TensorOp):
     def compute(self, input: MyTensor, labels: MyTensor):
         # input: (N, C) logits
         # labels: (N, C) one-hot
-        # Backend returns float
         loss_val = py.cross_entropy_forward(input, labels)
-        # Wrap in 1-element tensor
         return MyTensor.from_numpy(np.array(loss_val, dtype=np.float32), device="gpu" if input.is_gpu() else "cpu")
 
     def gradient(self, out_grad: Tensor, node: Tensor):
         input, labels = node.inputs
         input_t = input.realize_cached_data()
         labels_t = labels.realize_cached_data()
-        dev = "gpu" if input_t.is_gpu() else "cpu"
         
-        grad_input_t = MyTensor.from_numpy(np.zeros(input_t.shape(), dtype=np.float32), device=dev)
-        
-        # Backend assumes grad_output is 1.0 implicitly? 
-        # Or does it just compute dLoss/dInput?
-        # Usually dLoss/dInput = softmax(input) - labels (for one-hot) / N
-        # Let's assume backend computes the full gradient.
-        # If out_grad is not 1, we should multiply by it?
-        # But usually Loss is the final scalar.
-        
-        py.cross_entropy_backward(input_t, labels_t, grad_input_t)
-        
-        # If out_grad is not 1 (e.g. part of a larger graph), we should multiply.
-        # But CrossEntropy is usually the end.
-        # Let's multiply by out_grad just in case, if shapes allow.
-        # out_grad is scalar (1,). grad_input is (N, C).
+        grad_input_t = py.cross_entropy_backward(input_t, labels_t)
         
         return Tensor.make_const(grad_input_t) * out_grad, None # No grad for labels
 
@@ -698,8 +663,6 @@ class BatchNorm2d(TensorOp):
 
     def gradient(self, out_grad: Tensor, node: Tensor):
         if not self.training:
-            # For simplicity, we don't support gradient in inference mode yet
-            # Or we can implement it as a linear layer gradient
             return None, None, None, None, None
 
         input, weight, bias, running_mean, running_var = node.inputs
@@ -715,4 +678,32 @@ class BatchNorm2d(TensorOp):
 
 def batch_norm2d(input, weight, bias, running_mean, running_var, momentum=0.1, eps=1e-5, training=True):
     return BatchNorm2d(momentum, eps, training)(input, weight, bias, running_mean, running_var)
+
+
+class Dropout(TensorOp):
+    def __init__(self, p=0.5, training=True):
+        self.p = p
+        self.training = training
+        self.mask = None
+        
+    def compute(self, input: MyTensor):
+        if self.training:
+            import time
+            seed = int(time.time() * 1000000) % 10000000
+            out, mask = py.dropout_forward(input, self.p, seed)
+            self.mask = mask
+            return out
+        else:
+            return input
+
+    def gradient(self, out_grad: Tensor, node: Tensor):
+        if not self.training:
+            return out_grad
+            
+        out_grad_t = out_grad.realize_cached_data()
+        grad_input_t = py.dropout_backward(out_grad_t, self.mask, self.p)
+        return Tensor.make_const(grad_input_t)
+
+def dropout(input, p=0.5, training=True):
+    return Dropout(p, training)(input)
 

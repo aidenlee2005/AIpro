@@ -153,7 +153,8 @@ void matrix_init_int(int* A, int n, int min_val, int max_val, unsigned long long
     cudaFree(tmp);
 }
 
-//Task1: Fully Connected Layer
+// ===========FC=============
+
 void forward_fc(float* input, float* output, float* weight, float* bias,
     int batch_size, int out_features, int in_features){
         //output(b, o) = input(b, i) * weight(i, o)
@@ -199,7 +200,7 @@ void backward_fc(float* input, float* weight, float* bias,
     }
     
 
-//Task2 : Convolutional Layer
+// ===========Conv2d=============
 
 __global__ void im2col_kernel(float* input_img, float* input_col,
             int batch_size, int in_channels, int height, int width){
@@ -473,7 +474,7 @@ void backward_conv2d(float* input, float* filter,
     cudaFree(d_grad_outcol);
 }
 
-//Task 3: Max Pooling Layer
+// ===========Maxpool=============
 
 __global__ void max_pool_forward_kernel(const float* input, float* output, float* mask,
     int batch_size, int in_channels, int in_h, int in_w, int out_h, int out_w){
@@ -545,7 +546,8 @@ void backward_maxpool(const float* grad_output, const float* mask, float* grad_i
             batch_size, in_channels, in_h, in_w, out_h, out_w);
     }
 
-//Task4: Softmax Layer
+// ===========Softmax=============
+
 __global__ void softmax_forward_kernel(const float* input, float* output,
     int batch_size, int num_classes){
     int row = blockIdx.x;
@@ -605,7 +607,7 @@ void forward_softmax(const float* input, float* output,
         batch_size, num_classes);
 }
 
-//Task5: Cross Entropy Loss Layer
+// ===========Crossentropy=============
 
 __inline__ __device__ float blockReduceSum(float val) {
     extern __shared__ float buf[];
@@ -620,15 +622,11 @@ __inline__ __device__ float blockReduceSum(float val) {
     return buf[0];
 }
 
-// ---------------- Cross Entropy 修正 ----------------
-
-// loss_kernel: 采用 one-block-per-sample 的简单实现，避免不匹配的 block/thread 归约
 __global__ void loss_kernel(const float* input, const float* labels, float* loss,
     int batch_size, int num_classes){
     int row = blockIdx.x;
     if (row >= batch_size) return;
 
-    // 只由线程0读取标签并计算该行的负对数似然，再原子加到全局 loss
     if (threadIdx.x == 0) {
         int label = int(labels[row]);
         float prob = input[row * num_classes + label];
@@ -638,7 +636,6 @@ __global__ void loss_kernel(const float* input, const float* labels, float* loss
     }
 }
 
-// forward_cross_entropy: 先复用 forward_softmax 写入临时 d_softmax，再调用 loss_kernel
 void forward_cross_entropy(const float* input, const float* labels, float* loss,
     int batch_size, int num_classes, cudaStream_t stream){
     // input: logits (batch_size, num_classes)
@@ -674,7 +671,6 @@ void forward_cross_entropy(const float* input, const float* labels, float* loss,
     cudaFree(d_softmax);
 }
 
-// subtract_labels: 每行一个 block，线程在列上循环，安全处理任意 num_classes
 __global__ void subtract_labels(float* grad_input, const float* labels, int batch_size, int num_classes){
     int row = blockIdx.x;
     if (row >= batch_size) return;
@@ -689,7 +685,6 @@ __global__ void subtract_labels(float* grad_input, const float* labels, int batc
     }
 }
 
-// scale_grad: 通过全局索引循环覆盖所有元素
 __global__ void scale_grad(float* grad_input, int n, float scale){
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
@@ -698,7 +693,6 @@ __global__ void scale_grad(float* grad_input, int n, float scale){
     }
 }
 
-// backward_cross_entropy: 先写 softmax 到 grad_output，再做 subtract_labels 与 scale
 void backward_cross_entropy(const float* input_logits, const float* labels,
     int batch_size, int num_classes, float* grad_output, cudaStream_t stream){
     // write softmax(logits) into grad_output
@@ -717,7 +711,7 @@ void backward_cross_entropy(const float* input_logits, const float* labels,
     scale_grad<<<gs, bs, 0, stream>>>(grad_output, total, 1.0f / float(batch_size));
 }
 
-// SGD Update Kernel
+// ===========SGC=============
 __global__ void sgd_update_kernel(float* param, const float* grad, float* velocity,
                                   float lr, float momentum, float weight_decay, int size) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -746,7 +740,7 @@ void sgd_update_gpu(float* param, const float* grad, float* velocity,
     sgd_update_kernel<<<gridSize, blockSize, 0, stream>>>(param, grad, velocity, lr, momentum, weight_decay, size);
 }
 
-// Adam Update Kernel
+// ===========Adam=============
 __global__ void adam_update_kernel(float* param, const float* grad, float* m, float* v,
                                    float lr, float beta1, float beta2, float eps, float weight_decay, 
                                    int step, int size) {
@@ -784,7 +778,7 @@ void adam_update_gpu(float* param, const float* grad, float* m, float* v,
     adam_update_kernel<<<blocks, threads, 0, stream>>>(param, grad, m, v, lr, beta1, beta2, eps, weight_decay, step, size);
 }
 
-// Element-wise kernels
+// ===========Ewise Ops=============
 __global__ void eltwise_add_kernel(const float* a, const float* b, float* out, int size) {
     CUDA_KERNEL_LOOP(i, size) {
         out[i] = a[i] + b[i];
@@ -815,7 +809,7 @@ __global__ void eltwise_pow_kernel(const float* a, const float* b, float* out, i
     }
 }
 
-// Scalar kernels
+// ===========Scalar Ops=============
 __global__ void scalar_add_kernel(const float* a, float val, float* out, int size) {
     CUDA_KERNEL_LOOP(i, size) {
         out[i] = a[i] + val;
@@ -840,7 +834,6 @@ __global__ void scalar_pow_kernel(const float* a, float val, float* out, int siz
     }
 }
 
-// Wrappers
 void eltwise_add(const float* a, const float* b, float* out, int size) {
     eltwise_add_kernel<<<(size + 255) / 256, 256>>>(a, b, out, size);
 }
@@ -877,7 +870,7 @@ void scalar_pow(const float* a, float val, float* out, int size) {
     scalar_pow_kernel<<<(size + 255) / 256, 256>>>(a, val, out, size);
 }
 
-// Broadcast Kernels
+// ===========Broadcast=============
 __global__ void eltwise_add_broadcast_kernel(const float* a, const float* b, float* out, int size, int ndim, TensorStrides out_strides, TensorStrides a_strides, TensorStrides b_strides) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= size) return;
@@ -984,8 +977,10 @@ void eltwise_pow_broadcast(const float* a, const float* b, float* out, int size,
     eltwise_pow_broadcast_kernel<<<(size + 255) / 256, 256>>>(a, b, out, size, ndim, out_strides, a_strides, b_strides);
 }
 
-// --- BatchNorm Implementation ---
+// ===========Batchnorm=============
 
+// Input: (N, C, H, W)
+// Output: mean (C), var (C)
 __global__ void batch_norm_collect_statistics_kernel(
     const float* input, float* mean, float* var,
     int batch_size, int channels, int height, int width) {
@@ -1241,12 +1236,6 @@ void batch_norm_backward(
     float* save_mean, float* save_inv_std,
     int batch_size, int channels, int height, int width) {
     
-    // We need temporary storage for sum_dy and sum_dy_xhat if grad_weight/grad_bias are null
-    // But usually they are provided.
-    // However, the backward_input_kernel needs them.
-    // So we should compute them into grad_weight/grad_bias (if provided) or temp.
-    
-    // Assuming grad_weight and grad_bias are provided and allocated.
     
     batch_norm_backward_reduce_kernel<<<channels, 256>>>(
         grad_output, input, save_mean, save_inv_std, grad_weight, grad_bias,
@@ -1255,4 +1244,71 @@ void batch_norm_backward(
     batch_norm_backward_input_kernel<<<(batch_size * channels * height * width + 255) / 256, 256>>>(
         grad_output, input, grad_input, save_mean, save_inv_std, weight,
         grad_weight, grad_bias, batch_size, channels, height, width);
+}
+
+// ===========Dropout=============
+
+#include <curand.h>
+
+void fill_random_uniform(float* data, int size, unsigned long long seed) {
+    curandGenerator_t gen;
+    curandStatus_t status;
+    
+    status = curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT);
+    if (status != CURAND_STATUS_SUCCESS) {
+        return;
+    }
+    
+    status = curandSetPseudoRandomGeneratorSeed(gen, seed);
+    if (status != CURAND_STATUS_SUCCESS) {
+        curandDestroyGenerator(gen);
+        return;
+    }
+    
+    status = curandGenerateUniform(gen, data, size);
+    if (status != CURAND_STATUS_SUCCESS) {
+        curandDestroyGenerator(gen);
+        return;
+    }
+    
+    curandDestroyGenerator(gen);
+}
+
+// out = in * mask * scale
+// mask = (rand < prob) ? 1 : 0
+// scale = 1 / prob
+__global__ void dropout_forward_kernel(const float* in, const float* rand, float* out, float* mask, 
+                                       int size, float prob, float scale) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < size) {
+        float r = rand[idx];
+        float m = (r < prob) ? 1.0f : 0.0f;
+        mask[idx] = m;
+        out[idx] = in[idx] * m * scale;
+    }
+}
+
+void dropout_forward(const float* in, float* out, float* mask, float* rand, 
+                     int size, float prob, cudaStream_t stream) {
+    int threads = 256;
+    int blocks = (size + threads - 1) / threads;
+    float scale = 1.0f / prob;
+    dropout_forward_kernel<<<blocks, threads, 0, stream>>>(in, rand, out, mask, size, prob, scale);
+}
+
+// grad_in = grad_out * mask * scale
+__global__ void dropout_backward_kernel(const float* grad_out, const float* mask, float* grad_in, 
+                                        int size, float scale) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < size) {
+        grad_in[idx] = grad_out[idx] * mask[idx] * scale;
+    }
+}
+
+void dropout_backward(const float* grad_out, const float* mask, float* grad_in, 
+                      int size, float prob, cudaStream_t stream) {
+    int threads = 256;
+    int blocks = (size + threads - 1) / threads;
+    float scale = 1.0f / prob;
+    dropout_backward_kernel<<<blocks, threads, 0, stream>>>(grad_out, mask, grad_in, size, scale);
 }
