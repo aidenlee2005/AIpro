@@ -92,9 +92,11 @@ def train():
     
     model = nn.Sequential(
         nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1, device=device),
+        nn.BatchNorm2d(16, device=device),
         nn.ReLU(),
         nn.MaxPool2d(kernel_size=2), # 32 -> 16
         nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1, device=device),
+        nn.BatchNorm2d(32, device=device),
         nn.ReLU(),
         nn.MaxPool2d(kernel_size=2), # 16 -> 8
         nn.Flatten(),

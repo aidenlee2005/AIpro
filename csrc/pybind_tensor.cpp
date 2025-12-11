@@ -426,6 +426,81 @@ static TensorPtr scalar_pow_op(const TensorPtr& a, float val) {
     return out;
 }
 
+// BatchNorm Wrappers
+
+static std::tuple<TensorPtr, TensorPtr, TensorPtr> batch_norm_forward_training_wrapper(
+    const TensorPtr& input, const TensorPtr& weight, const TensorPtr& bias,
+    const TensorPtr& running_mean, const TensorPtr& running_var,
+    float momentum, float eps) {
+    
+    auto shape = input->get_shape();
+    int batch_size = shape[0];
+    int channels = shape[1];
+    int height = shape[2];
+    int width = shape[3];
+    
+    TensorPtr output = make_tensor_like(input, shape);
+    TensorPtr save_mean = make_tensor_like(input, {channels});
+    TensorPtr save_inv_std = make_tensor_like(input, {channels});
+    
+    batch_norm_forward_training(
+        input->data(), output->data(),
+        weight->data(), bias->data(),
+        running_mean->data(), running_var->data(),
+        save_mean->data(), save_inv_std->data(),
+        batch_size, channels, height, width,
+        momentum, eps);
+        
+    return std::make_tuple(output, save_mean, save_inv_std);
+}
+
+static TensorPtr batch_norm_forward_inference_wrapper(
+    const TensorPtr& input, const TensorPtr& weight, const TensorPtr& bias,
+    const TensorPtr& running_mean, const TensorPtr& running_var,
+    float eps) {
+    
+    auto shape = input->get_shape();
+    int batch_size = shape[0];
+    int channels = shape[1];
+    int height = shape[2];
+    int width = shape[3];
+    
+    TensorPtr output = make_tensor_like(input, shape);
+    
+    batch_norm_forward_inference(
+        input->data(), output->data(),
+        weight->data(), bias->data(),
+        running_mean->data(), running_var->data(),
+        batch_size, channels, height, width,
+        eps);
+        
+    return output;
+}
+
+static std::tuple<TensorPtr, TensorPtr, TensorPtr> batch_norm_backward_wrapper(
+    const TensorPtr& grad_output, const TensorPtr& input,
+    const TensorPtr& weight,
+    const TensorPtr& save_mean, const TensorPtr& save_inv_std) {
+    
+    auto shape = input->get_shape();
+    int batch_size = shape[0];
+    int channels = shape[1];
+    int height = shape[2];
+    int width = shape[3];
+    
+    TensorPtr grad_input = make_tensor_like(input, shape);
+    TensorPtr grad_weight = make_tensor_like(input, {channels});
+    TensorPtr grad_bias = make_tensor_like(input, {channels});
+    
+    batch_norm_backward(
+        grad_output->data(), input->data(), grad_input->data(),
+        weight->data(), grad_weight->data(), grad_bias->data(),
+        save_mean->data(), save_inv_std->data(),
+        batch_size, channels, height, width);
+        
+    return std::make_tuple(grad_input, grad_weight, grad_bias);
+}
+
 static void empty_cache(){
     MemoryPool::instance().clear();
 }
@@ -518,4 +593,8 @@ PYBIND11_MODULE(py_tensor, m) {
     m.def("scalar_mul", &scalar_mul_op);
     m.def("scalar_div", &scalar_div_op);
     m.def("scalar_pow", &scalar_pow_op);
+
+    m.def("batch_norm_forward_training", &batch_norm_forward_training_wrapper);
+    m.def("batch_norm_forward_inference", &batch_norm_forward_inference_wrapper);
+    m.def("batch_norm_backward", &batch_norm_backward_wrapper);
 }

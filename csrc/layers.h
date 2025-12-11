@@ -48,7 +48,29 @@ void backward_conv2d(float* input, float* filter,
         int batch_size, int out_channels, int in_channels, int height, int width,
         float* grad_input, float* grad_output, float* grad_filter,
         cudaStream_t stream);
-        
+
+// Batch Normalization
+void batch_norm_forward_training(
+    float* input, float* output, 
+    float* weight, float* bias,
+    float* running_mean, float* running_var,
+    float* save_mean, float* save_inv_std,
+    int batch_size, int channels, int height, int width,
+    float momentum, float eps);
+
+void batch_norm_forward_inference(
+    float* input, float* output,
+    float* weight, float* bias,
+    float* running_mean, float* running_var,
+    int batch_size, int channels, int height, int width,
+    float eps);
+
+void batch_norm_backward(
+    float* grad_output, float* input, float* grad_input,
+    float* weight, float* grad_weight, float* grad_bias,
+    float* save_mean, float* save_inv_std,
+    int batch_size, int channels, int height, int width);
+
 //Task 3: Max Pooling Layer
 
      

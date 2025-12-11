@@ -200,79 +200,100 @@ class Conv2d(Module):
             self.bias = None
 
     def forward(self, x):
-        # x: (N, C_in, H, W)
-        # weight: (C_out, C_in, K, K)
-        # 注意：目前的底层 conv2d_forward 不支持 stride 和 padding 参数，
-        # 且固定实现了 padding=1 (Same padding) 和 stride=1
-        
         out = x.conv2d(self.weight)
-        
         if self.bias:
-            # bias: (C_out,) -> (1, C_out, 1, 1) -> broadcast
-            # 需要 reshape 和 broadcast
-            # 假设 out shape 是 (N, C_out, H_out, W_out)
-            # 我们需要手动 reshape bias
-            # 由于 Tensor 没有 view/reshape 操作符重载（有 reshape 方法），我们需要计算目标 shape
-            
-            # 暂时无法动态获取 out 的 shape (它是 Tensor)，除非 realize_cached_data
-            # 但构建图时可能不需要数据。
-            # 不过我们的 Tensor 是动态图，realize_cached_data 会执行计算。
-            
-            # 构造 bias 的 reshape
-            b = self.bias.reshape((1, self.out_channels, 1, 1))
-            out = out + b.broadcast_to(out.shape)
-            
+            return out + self.bias.reshape((1, self.out_channels, 1, 1)).broadcast_to(out.shape)
         return out
+
+class BatchNorm2d(Module):
+    def __init__(self, num_features, eps=1e-5, momentum=0.1, affine=True, track_running_stats=True, device=None, dtype="float32"):
+        super().__init__()
+        self.num_features = num_features
+        self.eps = eps
+        self.momentum = momentum
+        self.affine = affine
+        self.track_running_stats = track_running_stats
+        
+        if affine:
+            self.weight = Parameter(np.ones((num_features,), dtype=dtype), device=device, dtype=dtype)
+            self.bias = Parameter(np.zeros((num_features,), dtype=dtype), device=device, dtype=dtype)
+        else:
+            self.weight = None
+            self.bias = None
+            
+        if track_running_stats:
+            self.running_mean = Tensor(np.zeros((num_features,), dtype=dtype), device=device, requires_grad=False)
+            self.running_var = Tensor(np.ones((num_features,), dtype=dtype), device=device, requires_grad=False)
+        else:
+            self.running_mean = None
+            self.running_var = None
+
+    def forward(self, x):
+        import operators as F
+        
+        w = self.weight if self.weight else Tensor(np.ones((self.num_features,), dtype="float32"), device=x.device, requires_grad=False)
+        b = self.bias if self.bias else Tensor(np.zeros((self.num_features,), dtype="float32"), device=x.device, requires_grad=False)
+        rm = self.running_mean if self.running_mean else Tensor(np.zeros((self.num_features,), dtype="float32"), device=x.device, requires_grad=False)
+        rv = self.running_var if self.running_var else Tensor(np.ones((self.num_features,), dtype="float32"), device=x.device, requires_grad=False)
+        
+        return F.batch_norm2d(x, w, b, rm, rv, self.momentum, self.eps, self.training)
 
 class MaxPool2d(Module):
     def __init__(self, kernel_size, stride=None, padding=0):
         super().__init__()
-        if kernel_size != 2:
-            raise ValueError("Only kernel_size=2 is supported")
         self.kernel_size = kernel_size
-        self.stride = stride if stride is not None else kernel_size
+        self.stride = stride if stride else kernel_size
         self.padding = padding
-
+        
     def forward(self, x):
-        # 同样，底层 max_pool2d_forward 似乎固定了 stride=2, kernel=2?
-        # 查看 pybind_tensor.cpp: out_h = in_h / 2; out_w = in_w / 2;
-        # 是的，底层写死了 2x2 pooling。
+        # Currently only supports 2x2 max pool
         return x.max_pool2d()
-
-class ReLU(Module):
-    def forward(self, x):
-        # 使用 operators 中的 relu 函数
-        from operators import relu
-        return relu(x)
 
 class Flatten(Module):
     def forward(self, x):
         # x: (N, C, H, W) -> (N, C*H*W)
-        # 获取 batch size
-        # 注意：x.shape 返回的是 tuple
+        # We need reshape.
+        # If Tensor doesn't have reshape, we can use numpy reshape on data?
+        # No, that breaks graph.
+        # But `operators.py` likely has `reshape` or `flatten`.
+        # Let's check `operators.py` for `reshape`.
+        # If not, we can implement it.
+        # But `examples/train_cifar10_custom.py` uses `nn.Flatten`.
+        # So `Flatten` must be implemented or `Tensor` has `reshape`.
+        
+        # Assuming Tensor has reshape.
         batch_size = x.shape[0]
         return x.reshape((batch_size, -1))
-    
-class CrossEntropyLoss(Module):
-    def forward(self, input, target):
-        # input: (N, C)
-        # target: (N,) indices or (N, C) one-hot?
-        # Based on pybind_tensor.cpp comments, it seems to expect (N,) indices.
-        # But let's check if we need to convert one-hot to indices or vice versa.
-        # For now, assume target is (N,) indices (as floats).
-        from operators import cross_entropy
-        return cross_entropy(input, target)
+
+class ReLU(Module):
+    def forward(self, x):
+        return x.relu()
 
 class Sequential(Module):
     def __init__(self, *modules):
         super().__init__()
-        self.modules_list = modules
-        # 将 modules 注册为属性以便 parameters() 扫描到
-        for i, module in enumerate(modules):
-            setattr(self, str(i), module)
-
+        self.modules = modules
+        
     def forward(self, x):
-        for module in self.modules_list:
+        for module in self.modules:
             x = module(x)
         return x
+    
+    def parameters(self):
+        params = []
+        for module in self.modules:
+            params.extend(module.parameters())
+        return params
+    
+    def train(self):
+        for module in self.modules:
+            module.train()
+            
+    def eval(self):
+        for module in self.modules:
+            module.eval()
+
+class CrossEntropyLoss(Module):
+    def forward(self, input, target):
+        return input.cross_entropy(target)
 

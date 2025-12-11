@@ -193,6 +193,12 @@ class Tensor(Value):
     def fc(self, weight, bias):
         return FC()(self, weight, bias)
 
+    def relu(self):
+        return ReLU()(self)
+
+    def cross_entropy(self, labels):
+        return CrossEntropy()(self, labels)
+
     __radd__ = __add__
     __rmul__ = __mul__
     __rsub__ = __sub__
@@ -667,4 +673,46 @@ class CrossEntropy(TensorOp):
 
 def cross_entropy(input, labels):
     return CrossEntropy()(input, labels)
+
+
+class BatchNorm2d(TensorOp):
+    def __init__(self, momentum=0.1, eps=1e-5, training=True):
+        self.momentum = momentum
+        self.eps = eps
+        self.training = training
+        self.save_mean = None
+        self.save_inv_std = None
+
+    def compute(self, input: MyTensor, weight: MyTensor, bias: MyTensor, running_mean: MyTensor, running_var: MyTensor):
+        if self.training:
+            out, save_mean, save_inv_std = py.batch_norm_forward_training(
+                input, weight, bias, running_mean, running_var, self.momentum, self.eps
+            )
+            self.save_mean = save_mean
+            self.save_inv_std = save_inv_std
+            return out
+        else:
+            return py.batch_norm_forward_inference(
+                input, weight, bias, running_mean, running_var, self.eps
+            )
+
+    def gradient(self, out_grad: Tensor, node: Tensor):
+        if not self.training:
+            # For simplicity, we don't support gradient in inference mode yet
+            # Or we can implement it as a linear layer gradient
+            return None, None, None, None, None
+
+        input, weight, bias, running_mean, running_var = node.inputs
+        input_t = input.realize_cached_data()
+        weight_t = weight.realize_cached_data()
+        out_grad_t = out_grad.realize_cached_data()
+        
+        grad_input_t, grad_weight_t, grad_bias_t = py.batch_norm_backward(
+            out_grad_t, input_t, weight_t, self.save_mean, self.save_inv_std
+        )
+        
+        return Tensor.make_const(grad_input_t), Tensor.make_const(grad_weight_t), Tensor.make_const(grad_bias_t), None, None
+
+def batch_norm2d(input, weight, bias, running_mean, running_var, momentum=0.1, eps=1e-5, training=True):
+    return BatchNorm2d(momentum, eps, training)(input, weight, bias, running_mean, running_var)
 

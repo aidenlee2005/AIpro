@@ -983,3 +983,276 @@ void eltwise_div_broadcast(const float* a, const float* b, float* out, int size,
 void eltwise_pow_broadcast(const float* a, const float* b, float* out, int size, int ndim, TensorStrides out_strides, TensorStrides a_strides, TensorStrides b_strides) {
     eltwise_pow_broadcast_kernel<<<(size + 255) / 256, 256>>>(a, b, out, size, ndim, out_strides, a_strides, b_strides);
 }
+
+// --- BatchNorm Implementation ---
+
+__global__ void batch_norm_collect_statistics_kernel(
+    const float* input, float* mean, float* var,
+    int batch_size, int channels, int height, int width) {
+    
+    int c = blockIdx.x;
+    int tid = threadIdx.x;
+    int spatial_size = height * width;
+    int num_elements = batch_size * spatial_size;
+    
+    float sum = 0.0f;
+    float sum_sq = 0.0f;
+    
+    for (int i = tid; i < num_elements; i += blockDim.x) {
+        int n = i / spatial_size;
+        int hw = i % spatial_size;
+        int idx = n * channels * spatial_size + c * spatial_size + hw;
+        float val = input[idx];
+        sum += val;
+        sum_sq += val * val;
+    }
+    
+    __shared__ float s_sum[256]; //shared memory
+    __shared__ float s_sum_sq[256];
+    
+    s_sum[tid] = sum;
+    s_sum_sq[tid] = sum_sq;
+    __syncthreads();
+    
+    for (int stride = blockDim.x / 2; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            s_sum[tid] += s_sum[tid + stride];
+            s_sum_sq[tid] += s_sum_sq[tid + stride];
+        }
+        __syncthreads();
+    }
+    
+    if (tid == 0) {
+        float m = s_sum[0] / num_elements;
+        mean[c] = m;
+        var[c] = s_sum_sq[0] / num_elements - m * m;
+    }
+}
+
+__global__ void batch_norm_forward_kernel(
+    const float* input, float* output,
+    const float* mean, const float* var,
+    const float* weight, const float* bias,
+    int batch_size, int channels, int height, int width,
+    float eps) {
+    
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int spatial_size = height * width;
+    int total_size = batch_size * channels * spatial_size;
+    
+    if (idx < total_size) {
+        int c = (idx / spatial_size) % channels;
+        
+        float m = mean[c];
+        float v = var[c];
+        float inv_std = rsqrtf(v + eps);
+        
+        float val = input[idx];
+        float norm = (val - m) * inv_std;
+        
+        float w = (weight) ? weight[c] : 1.0f;
+        float b = (bias) ? bias[c] : 0.0f;
+        
+        output[idx] = norm * w + b;
+    }
+}
+
+__global__ void batch_norm_forward_inference_kernel(
+    const float* input, float* output,
+    const float* running_mean, const float* running_var,
+    const float* weight, const float* bias,
+    int batch_size, int channels, int height, int width,
+    float eps) {
+    
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int spatial_size = height * width;
+    int total_size = batch_size * channels * spatial_size;
+    
+    if (idx < total_size) {
+        int c = (idx / spatial_size) % channels;
+        
+        float m = running_mean[c];
+        float v = running_var[c];
+        float inv_std = rsqrtf(v + eps);
+        
+        float val = input[idx];
+        float norm = (val - m) * inv_std;
+        
+        float w = (weight) ? weight[c] : 1.0f;
+        float b = (bias) ? bias[c] : 0.0f;
+        
+        output[idx] = norm * w + b;
+    }
+}
+
+__global__ void batch_norm_save_stats_kernel(
+    const float* mean, const float* var,
+    float* save_mean, float* save_inv_std,
+    int channels, float eps) {
+    
+    int c = blockIdx.x * blockDim.x + threadIdx.x;
+    if (c < channels) {
+        save_mean[c] = mean[c];
+        save_inv_std[c] = rsqrtf(var[c] + eps);
+    }
+}
+
+__global__ void update_running_stats_kernel(
+    float* running_mean, float* running_var,
+    const float* current_mean, const float* current_var,
+    float momentum, int channels) {
+    
+    int c = blockIdx.x * blockDim.x + threadIdx.x;
+    if (c < channels) {
+        running_mean[c] = (1.0f - momentum) * running_mean[c] + momentum * current_mean[c];
+        running_var[c] = (1.0f - momentum) * running_var[c] + momentum * current_var[c];
+    }
+}
+
+void batch_norm_forward_training(
+    float* input, float* output, 
+    float* weight, float* bias,
+    float* running_mean, float* running_var,
+    float* save_mean, float* save_inv_std,
+    int batch_size, int channels, int height, int width,
+    float momentum, float eps) {
+    
+    thrust::device_vector<float> temp_mean(channels);
+    thrust::device_vector<float> temp_var(channels);
+    
+    float* d_mean = thrust::raw_pointer_cast(temp_mean.data());
+    float* d_var = thrust::raw_pointer_cast(temp_var.data());
+    
+    batch_norm_collect_statistics_kernel<<<channels, 256>>>(
+        input, d_mean, d_var, batch_size, channels, height, width);
+        
+    batch_norm_forward_kernel<<<(batch_size * channels * height * width + 255) / 256, 256>>>(
+        input, output, d_mean, d_var, weight, bias, batch_size, channels, height, width, eps);
+        
+    batch_norm_save_stats_kernel<<<(channels + 255) / 256, 256>>>(
+        d_mean, d_var, save_mean, save_inv_std, channels, eps);
+        
+    update_running_stats_kernel<<<(channels + 255) / 256, 256>>>(
+        running_mean, running_var, d_mean, d_var, momentum, channels);
+}
+
+void batch_norm_forward_inference(
+    float* input, float* output,
+    float* weight, float* bias,
+    float* running_mean, float* running_var,
+    int batch_size, int channels, int height, int width,
+    float eps) {
+    
+    batch_norm_forward_inference_kernel<<<(batch_size * channels * height * width + 255) / 256, 256>>>(
+        input, output, running_mean, running_var, weight, bias, batch_size, channels, height, width, eps);
+}
+
+__global__ void batch_norm_backward_reduce_kernel(
+    const float* grad_output, const float* input,
+    const float* mean, const float* inv_std,
+    float* grad_weight, float* grad_bias,
+    int batch_size, int channels, int height, int width) {
+    
+    int c = blockIdx.x;
+    int tid = threadIdx.x;
+    int spatial_size = height * width;
+    int num_elements = batch_size * spatial_size;
+    
+    float sum_dy = 0.0f;
+    float sum_dy_xhat = 0.0f;
+    
+    for (int i = tid; i < num_elements; i += blockDim.x) {
+        int n = i / spatial_size;
+        int hw = i % spatial_size;
+        int idx = n * channels * spatial_size + c * spatial_size + hw;
+        
+        float dy = grad_output[idx];
+        float x = input[idx];
+        float m = mean[c];
+        float is = inv_std[c];
+        float x_hat = (x - m) * is;
+        
+        sum_dy += dy;
+        sum_dy_xhat += dy * x_hat;
+    }
+    
+    __shared__ float s_sum_dy[256];
+    __shared__ float s_sum_dy_xhat[256];
+    
+    s_sum_dy[tid] = sum_dy;
+    s_sum_dy_xhat[tid] = sum_dy_xhat;
+    __syncthreads();
+    
+    for (int stride = blockDim.x / 2; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            s_sum_dy[tid] += s_sum_dy[tid + stride];
+            s_sum_dy_xhat[tid] += s_sum_dy_xhat[tid + stride];
+        }
+        __syncthreads();
+    }
+    
+    if (tid == 0) {
+        if (grad_bias) grad_bias[c] = s_sum_dy[0];
+        if (grad_weight) grad_weight[c] = s_sum_dy_xhat[0];
+    }
+}
+
+__global__ void batch_norm_backward_input_kernel(
+    const float* grad_output, const float* input, float* grad_input,
+    const float* mean, const float* inv_std,
+    const float* weight,
+    const float* sum_dy, const float* sum_dy_xhat,
+    int batch_size, int channels, int height, int width) {
+    
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int spatial_size = height * width;
+    int total_size = batch_size * channels * spatial_size;
+    int num_elements = batch_size * spatial_size;
+    
+    if (idx < total_size) {
+        int c = (idx / spatial_size) % channels;
+        
+        float m = mean[c];
+        float is = inv_std[c];
+        float w = (weight) ? weight[c] : 1.0f;
+        
+        float dy = grad_output[idx];
+        float x = input[idx];
+        float x_hat = (x - m) * is;
+        
+        float s_dy = sum_dy[c];
+        float s_dy_xhat = sum_dy_xhat[c];
+        
+        // dx = (gamma / std) * (dy - mean(dy) - x_hat * mean(dy * x_hat))
+        // mean(dy) = sum_dy / N
+        // mean(dy * x_hat) = sum_dy_xhat / N
+        
+        float term1 = dy;
+        float term2 = s_dy / num_elements;
+        float term3 = x_hat * (s_dy_xhat / num_elements);
+        
+        grad_input[idx] = w * is * (term1 - term2 - term3);
+    }
+}
+
+void batch_norm_backward(
+    float* grad_output, float* input, float* grad_input,
+    float* weight, float* grad_weight, float* grad_bias,
+    float* save_mean, float* save_inv_std,
+    int batch_size, int channels, int height, int width) {
+    
+    // We need temporary storage for sum_dy and sum_dy_xhat if grad_weight/grad_bias are null
+    // But usually they are provided.
+    // However, the backward_input_kernel needs them.
+    // So we should compute them into grad_weight/grad_bias (if provided) or temp.
+    
+    // Assuming grad_weight and grad_bias are provided and allocated.
+    
+    batch_norm_backward_reduce_kernel<<<channels, 256>>>(
+        grad_output, input, save_mean, save_inv_std, grad_weight, grad_bias,
+        batch_size, channels, height, width);
+        
+    batch_norm_backward_input_kernel<<<(batch_size * channels * height * width + 255) / 256, 256>>>(
+        grad_output, input, grad_input, save_mean, save_inv_std, weight,
+        grad_weight, grad_bias, batch_size, channels, height, width);
+}
