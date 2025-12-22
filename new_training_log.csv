@@ -1,0 +1,11 @@
+Timestamp,Script,Model,Augmentation,Optimizer,LR,BatchSize,Momentum,WeightDecay,Epochs,Final_TrAcc,Final_TeAcc,Total_Time,Avg_Epoch_Time,PyTorch_Ref_Epoch_Time,Speedup(PyTorch/Ours)
+2025-12-18 10:30:28,train_cnn_no_aug.py,SimpleCNN,None,SGD,0.01,64,0.9,0.0,5,0.7052,0.6774,58.72,11.7441,4.2459,0.3615
+2025-12-18 10:38:54,train_cnn_no_aug.py,SimpleCNN,None,SGD,0.01,64,0.9,0.0,5,0.7089,0.6695,60.44,12.0888,4.4566,0.3687
+2025-12-18 10:44:28,train_cnn_no_aug.py,SimpleCNN,None,SGD,0.01,64,0.9,0.0,5,0.7129,0.6831,61.12,12.2239,4.1947,0.3432
+2025-12-18 10:51:54,train_cnn_no_aug.py,SimpleCNN,None,SGD,0.01,64,0.9,0.0,5,0.7129,0.6738,61.12,12.2238,3.8348,0.3137
+2025-12-18 10:54:05,train_cnn_aug.py,SimpleCNN,RandomCrop+Flip,SGD,0.01,64,0.9,0.0,5,0.6022,0.6442,74.27,14.8536,4.3610,0.2936
+2025-12-18 10:58:28,train_vgg_aug.py,VGG,RandomCrop+Flip,SGD,0.01,64,0.9,0.0005,5,0.6626,0.7194,218.30,43.6603,6.8780,0.1575
+2025-12-18 11:12:01,train_vgg_aug.py,VGG,RandomCrop+Flip,SGD,0.01,64,0.9,0.0005,5,0.6463,0.6641,222.28,44.4569,6.5785,0.1480
+2025-12-18 11:19:03,train_vgg_aug.py,VGG,RandomCrop+Flip,SGD,0.01,64,0.9,0.0005,5,0.6666,0.6724,222.34,44.4681,5.2743,0.1186
+2025-12-18 12:04:20,train_vgg_aug.py,VGG,RandomCrop+Flip,SGD,0.01,64,0.9,0.0005,5,0.6643,0.7091,218.13,43.6266,6.9476,0.1593
+2025-12-22 13:00:59,train_cnn_no_aug.py,SimpleCNN,None,SGD,0.01,64,0.9,0.0,5,0.7085,0.6727,60.90,12.1793,5.4650,0.4487

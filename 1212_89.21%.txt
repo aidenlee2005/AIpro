@@ -1,0 +1,63 @@
+Starting Tuning at Fri Dec 12 17:22:29 2025
+--- Running Config 1/1 ---
+
+[Config] Opt: Adam, LR: 0.001, BS: 64, Mom: 0.0, WD: 0.0001, Drop: 0.3
+  Ep 1/50 | Loss: 1.5648 | TrAcc: 0.4302 | TeAcc: 0.5189 | Time: 41.37s
+  Ep 2/50 | Loss: 1.1546 | TrAcc: 0.5866 | TeAcc: 0.6553 | Time: 43.82s
+  Ep 3/50 | Loss: 0.9834 | TrAcc: 0.6520 | TeAcc: 0.7172 | Time: 44.72s
+  Ep 4/50 | Loss: 0.8955 | TrAcc: 0.6869 | TeAcc: 0.6985 | Time: 42.09s
+  Ep 5/50 | Loss: 0.8298 | TrAcc: 0.7118 | TeAcc: 0.7478 | Time: 42.05s
+  Ep 6/50 | Loss: 0.7728 | TrAcc: 0.7312 | TeAcc: 0.7832 | Time: 41.75s
+  Ep 7/50 | Loss: 0.7270 | TrAcc: 0.7494 | TeAcc: 0.7794 | Time: 44.54s
+  Ep 8/50 | Loss: 0.6980 | TrAcc: 0.7602 | TeAcc: 0.7826 | Time: 45.05s
+  Ep 9/50 | Loss: 0.6610 | TrAcc: 0.7755 | TeAcc: 0.7769 | Time: 41.50s
+  Ep 10/50 | Loss: 0.6252 | TrAcc: 0.7867 | TeAcc: 0.7873 | Time: 42.37s
+  Ep 11/50 | Loss: 0.5970 | TrAcc: 0.7964 | TeAcc: 0.8105 | Time: 42.74s
+  Ep 12/50 | Loss: 0.5768 | TrAcc: 0.8027 | TeAcc: 0.8292 | Time: 42.37s
+  Ep 13/50 | Loss: 0.5511 | TrAcc: 0.8127 | TeAcc: 0.8218 | Time: 44.27s
+  Ep 14/50 | Loss: 0.5417 | TrAcc: 0.8159 | TeAcc: 0.8245 | Time: 43.35s
+  Ep 15/50 | Loss: 0.5229 | TrAcc: 0.8237 | TeAcc: 0.8171 | Time: 41.92s
+  Ep 16/50 | Loss: 0.5029 | TrAcc: 0.8309 | TeAcc: 0.8234 | Time: 41.53s
+  Ep 17/50 | Loss: 0.4808 | TrAcc: 0.8385 | TeAcc: 0.8443 | Time: 41.49s
+  Ep 18/50 | Loss: 0.4685 | TrAcc: 0.8429 | TeAcc: 0.8378 | Time: 41.43s
+  Ep 19/50 | Loss: 0.4569 | TrAcc: 0.8467 | TeAcc: 0.8412 | Time: 41.44s
+  Ep 20/50 | Loss: 0.4433 | TrAcc: 0.8517 | TeAcc: 0.8429 | Time: 41.40s
+  Ep 21/50 | Loss: 0.4315 | TrAcc: 0.8535 | TeAcc: 0.8470 | Time: 41.35s
+  Ep 22/50 | Loss: 0.4222 | TrAcc: 0.8582 | TeAcc: 0.8490 | Time: 41.58s
+  Ep 23/50 | Loss: 0.4062 | TrAcc: 0.8639 | TeAcc: 0.8448 | Time: 43.26s
+  Ep 24/50 | Loss: 0.4027 | TrAcc: 0.8638 | TeAcc: 0.8407 | Time: 42.08s
+  Ep 25/50 | Loss: 0.3947 | TrAcc: 0.8674 | TeAcc: 0.8474 | Time: 41.72s
+  Ep 26/50 | Loss: 0.3852 | TrAcc: 0.8683 | TeAcc: 0.8438 | Time: 42.50s
+  Ep 27/50 | Loss: 0.3786 | TrAcc: 0.8712 | TeAcc: 0.8458 | Time: 41.62s
+  Ep 28/50 | Loss: 0.3694 | TrAcc: 0.8749 | TeAcc: 0.8475 | Time: 41.61s
+  Ep 29/50 | Loss: 0.3634 | TrAcc: 0.8765 | TeAcc: 0.8677 | Time: 42.85s
+  Ep 30/50 | Loss: 0.3565 | TrAcc: 0.8784 | TeAcc: 0.8647 | Time: 41.73s
+  [LR Decay] LR set to 0.0001
+  Ep 31/50 | Loss: 0.2948 | TrAcc: 0.9001 | TeAcc: 0.8830 | Time: 41.56s
+  Ep 32/50 | Loss: 0.2705 | TrAcc: 0.9080 | TeAcc: 0.8853 | Time: 41.67s
+  Ep 33/50 | Loss: 0.2595 | TrAcc: 0.9109 | TeAcc: 0.8876 | Time: 41.62s
+  Ep 34/50 | Loss: 0.2569 | TrAcc: 0.9132 | TeAcc: 0.8871 | Time: 43.19s
+  Ep 35/50 | Loss: 0.2524 | TrAcc: 0.9135 | TeAcc: 0.8881 | Time: 44.24s
+  Ep 36/50 | Loss: 0.2463 | TrAcc: 0.9154 | TeAcc: 0.8885 | Time: 41.71s
+  Ep 37/50 | Loss: 0.2400 | TrAcc: 0.9186 | TeAcc: 0.8885 | Time: 42.34s
+  Ep 38/50 | Loss: 0.2388 | TrAcc: 0.9179 | TeAcc: 0.8880 | Time: 41.41s
+  Ep 39/50 | Loss: 0.2330 | TrAcc: 0.9205 | TeAcc: 0.8889 | Time: 46.23s
+  Ep 40/50 | Loss: 0.2338 | TrAcc: 0.9205 | TeAcc: 0.8897 | Time: 41.80s
+  [LR Decay] LR set to 1e-05
+  Ep 41/50 | Loss: 0.2255 | TrAcc: 0.9208 | TeAcc: 0.8893 | Time: 41.33s
+  Ep 42/50 | Loss: 0.2217 | TrAcc: 0.9241 | TeAcc: 0.8904 | Time: 41.74s
+  Ep 43/50 | Loss: 0.2259 | TrAcc: 0.9223 | TeAcc: 0.8905 | Time: 40.99s
+  Ep 44/50 | Loss: 0.2221 | TrAcc: 0.9248 | TeAcc: 0.8904 | Time: 43.14s
+  Ep 45/50 | Loss: 0.2217 | TrAcc: 0.9239 | TeAcc: 0.8904 | Time: 42.96s
+  Ep 46/50 | Loss: 0.2234 | TrAcc: 0.9240 | TeAcc: 0.8912 | Time: 41.77s
+  Ep 47/50 | Loss: 0.2200 | TrAcc: 0.9246 | TeAcc: 0.8910 | Time: 41.37s
+  Ep 48/50 | Loss: 0.2185 | TrAcc: 0.9266 | TeAcc: 0.8913 | Time: 41.27s
+  Ep 49/50 | Loss: 0.2193 | TrAcc: 0.9249 | TeAcc: 0.8921 | Time: 41.21s
+  Ep 50/50 | Loss: 0.2193 | TrAcc: 0.9243 | TeAcc: 0.8904 | Time: 41.44s
+
+====================================================================================================
+Opt    | LR       | BS     | Mom    | WD       | Drop   | Epochs | Best Acc   | Time(s) 
+----------------------------------------------------------------------------------------------------
+Adam   | 0.001    | 64     | 0.0    | 0.0001   | 0.3    | 50     | 0.8921     | 2114.5
+====================================================================================================
+Best Configuration: Opt=Adam, LR=0.001, Drop=0.3

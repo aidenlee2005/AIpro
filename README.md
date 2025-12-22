@@ -47,7 +47,29 @@ pip install torch torchvision
 ## 3. 运行示例
 
 ### 训练 CIFAR-10 模型
-本项目包含一个完整的 CIFAR-10 训练示例，演示了如何定义卷积神经网络 (CNN)、加载数据并进行训练。
+本项目包含多个 CIFAR-10 训练示例，涵盖了从简单 CNN 到 ResNet 的不同复杂度模型。
+
+1.  **基础 CNN (无数据增强)**
+    ```bash
+    python examples/train_cnn_no_aug.py
+    ```
+
+2.  **基础 CNN (带数据增强)**
+    ```bash
+    python examples/train_cnn_aug.py
+    ```
+
+3.  **VGG 网络**
+    ```bash
+    python examples/train_vgg_aug.py
+    ```
+
+4.  **ResNet 网络**
+    ```bash
+    python examples/train_resnet_aug.py
+    ```
+
+所有脚本运行后，训练日志会自动记录到 `examples/new_training_log.csv`，模型文件会保存到 `examples/models/` 目录。
 
 **运行命令：**
 ```bash
@@ -99,6 +121,7 @@ python examples/tune_cifar10.py
 ├── csrc/               # C++/CUDA 后端源码 (Tensor, MemoryPool, Kernels)
 ├── framework/          # Python 前端框架 (Autodiff, Operators, Optimizer)
 ├── examples/           # 示例脚本 (CIFAR-10 Training)
+├── models/             # 模型存储
 ├── tests/              # 测试脚本
 ├── data/               # 数据集存放目录
 ├── docs/               # 文档

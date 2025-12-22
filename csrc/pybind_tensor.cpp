@@ -214,6 +214,11 @@ static void sgd_step(std::vector<TensorPtr>& params,
     if (params.size() != grads.size()) {
         throw std::runtime_error("params and grads must have the same size");
     }
+    
+    // Create CUDA stream for asynchronous execution
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+    
     for (size_t i = 0; i < params.size(); ++i) {
         if (params[i]->is_cpu() || grads[i]->is_cpu()) {
              throw std::runtime_error("SGD step requires GPU tensors");
@@ -227,16 +232,12 @@ static void sgd_step(std::vector<TensorPtr>& params,
         int size = params[i]->get_size();
         float* v_ptr = (momentum > 0 && !velocities.empty()) ? velocities[i]->data() : nullptr;
         
-        // Debug print
-        // std::cout << "SGD Step: param=" << params[i]->data() 
-        //           << " grad=" << grads[i]->data() 
-        //           << " v=" << v_ptr 
-        //           << " size=" << size 
-        //           << " lr=" << lr << std::endl;
-
-        sgd_update_gpu(params[i]->data(), grads[i]->data(), v_ptr, lr, momentum, weight_decay, size, 0);
+        sgd_update_gpu(params[i]->data(), grads[i]->data(), v_ptr, lr, momentum, weight_decay, size, stream);
     }
-    cudaDeviceSynchronize();
+    
+    // Synchronize stream instead of device
+    cudaStreamSynchronize(stream);
+    cudaStreamDestroy(stream);
 }
 
 static void adam_step(std::vector<TensorPtr>& params, 
@@ -247,11 +248,20 @@ static void adam_step(std::vector<TensorPtr>& params,
     if (params.size() != grads.size()) {
         throw std::runtime_error("params and grads must have the same size");
     }
+    
+    // Create CUDA stream for asynchronous execution
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+    
     for (size_t i = 0; i < params.size(); ++i) {
         int size = params[i]->get_size();
         adam_update_gpu(params[i]->data(), grads[i]->data(), ms[i]->data(), vs[i]->data(),
-                        lr, beta1, beta2, eps, weight_decay, t, size, 0);
+                        lr, beta1, beta2, eps, weight_decay, t, size, stream);
     }
+    
+    // Synchronize stream instead of device
+    cudaStreamSynchronize(stream);
+    cudaStreamDestroy(stream);
 }
 
 // Helper for broadcasting

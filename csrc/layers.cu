@@ -209,9 +209,12 @@ __global__ void im2col_kernel(float* input_img, float* input_col,
     // input_img(b, c, h, w) -> input_col()
     int col_h = height*width;
     int col_w = 3*3*in_channels;
-    int col_row = blockIdx.x * blockDim.x + threadIdx.x;
-    int col_col = blockIdx.y * blockDim.y + threadIdx.y;
+    
+    // Swap mapping: threadIdx.x maps to col_col (inner dimension) for coalesced write
+    int col_col = blockIdx.x * blockDim.x + threadIdx.x;
+    int col_row = blockIdx.y * blockDim.y + threadIdx.y;
     int batch = blockIdx.z;
+    
     if (col_row >= col_h || col_col >= col_w || batch >= batch_size) return;
     
     //计算输出位置
@@ -245,8 +248,9 @@ void im2col(float* input_img, float* input_col,
     int col_h = height * width;
     int col_w = 3 * 3 * in_channels;
     dim3 block(16, 16);
-    dim3 grid((col_h + block.x -1)/block.x,
-              (col_w + block.y -1)/block.y,
+    // Swap grid dimensions to match swapped kernel mapping
+    dim3 grid((col_w + block.x -1)/block.x,
+              (col_h + block.y -1)/block.y,
                batch_size);
     im2col_kernel<<<grid, block,0,stream>>>(input_img, input_col,
         batch_size, in_channels, height, width);
@@ -280,9 +284,6 @@ inline void nhwc_to_nchw(const float* bhwc, float* bchw,
     int gridSize = (total + blockSize - 1) / blockSize;
     nhwc_to_nchw_kernal<<<gridSize, blockSize, 0, stream>>>(bhwc, bchw,
                                                                  batch, out_channels, height, width);
-    // 可选调试检查：
-    // cudaError_t err = cudaGetLastError();
-    // if (err != cudaSuccess) std::cerr << "outcol_to_nchw kernel launch failed: " << cudaGetErrorString(err) << std::endl;
 }
 
 // BCHW -> BHWC 
@@ -315,19 +316,19 @@ inline void nchw_to_nhwc(const float* nchw, float* nhwc,
     int gridSize = (int)std::min(gridSize64, (size_t)INT_MAX);
     nchw_to_nhwc_kernel<<<gridSize, blockSize, 0, stream>>>(nchw, nhwc,
                                                               batch, out_channels, height, width);
-    // 可选调试：
-    // cudaStreamSynchronize(stream);
-    // cudaError_t err = cudaGetLastError();
-    // if (err != cudaSuccess) std::cerr << "nchw_to_nhwc kernel failed: " << cudaGetErrorString(err) << std::endl;
 }
+
 
 __global__ void col2im_kernal( float* grad_col, float* grad_input, 
            int batch_size, int in_channels, int height, int width){
     int col_h = height * width;
     int col_w = 3 * 3 * in_channels;
-    int col_row = blockIdx.x * blockDim.x + threadIdx.x;
-    int col_col = blockIdx.y * blockDim.y + threadIdx.y;
+    
+    // Swap mapping: threadIdx.x maps to col_col (inner dimension) for coalesced read
+    int col_col = blockIdx.x * blockDim.x + threadIdx.x;
+    int col_row = blockIdx.y * blockDim.y + threadIdx.y;
     int batch = blockIdx.z;
+    
     if (col_row >= col_h || col_col >= col_w || batch >= batch_size) return;
 
     //计算输出位置
@@ -365,8 +366,9 @@ void col2im(float* grad_col, float* grad_input,
     int col_h = height * width;
     int col_w = 3 * 3 * in_channels;
     dim3 block(16, 16);
-    dim3 grid((col_h + block.x - 1)/block.x,
-              (col_w + block.y - 1)/block.y,
+    // Swap grid dimensions to match swapped kernel mapping
+    dim3 grid((col_w + block.x - 1)/block.x,
+              (col_h + block.y - 1)/block.y,
                batch_size);
     col2im_kernal<<<grid, block,0,stream>>>(grad_col, grad_input,
         batch_size, in_channels, height, width);
@@ -686,17 +688,21 @@ __global__ void sgd_update_kernel(float* param, const float* grad, float* veloci
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < size) {
         float g = grad[idx];
+        
+        // Apply weight decay first
         if (weight_decay != 0.0f) {
             g += param[idx] * weight_decay;
         }
         
-        float v = 0.0f;
         if (momentum != 0.0f) {
-            // velocity is assumed to be initialized to 0
-            v = velocity[idx] * momentum + g;
-            velocity[idx] = v;
-            param[idx] -= lr * v;
+            // Update velocity: v = v * momentum + g
+            float v_old = velocity[idx];
+            float v_new = v_old * momentum + g;
+            velocity[idx] = v_new;
+            // Update parameter: param -= lr * v
+            param[idx] -= lr * v_new;
         } else {
+            // No momentum: param -= lr * g
             param[idx] -= lr * g;
         }
     }
@@ -1318,4 +1324,65 @@ void dropout_backward(const float* grad_out, const float* mask, float* grad_in,
     int blocks = (size + threads - 1) / threads;
     float scale = 1.0f / prob;
     dropout_backward_kernel<<<blocks, threads, 0, stream>>>(grad_out, mask, grad_in, size, scale);
+}
+
+__global__ void crop_kernel(const float* input, float* output, const int* crop_top, const int* crop_left,
+                            int batch, int channels, int height, int width, int padding, int count) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= count) return;
+
+    int w = idx % width;
+    int temp = idx / width;
+    int h = temp % height;
+    temp = temp / height;
+    int c = temp % channels;
+    int n = temp / channels;
+
+    int top = crop_top[n];
+    int left = crop_left[n];
+
+    int in_y = h + top - padding;
+    int in_x = w + left - padding;
+
+    if (in_y >= 0 && in_y < height && in_x >= 0 && in_x < width) {
+        int in_idx = ((n * channels + c) * height + in_y) * width + in_x;
+        output[idx] = input[in_idx];
+    } else {
+        output[idx] = 0.0f;
+    }
+}
+
+void crop_gpu(const float* input, float* output, const int* crop_top, const int* crop_left,
+              int batch, int channels, int height, int width, int padding, int count) {
+    int threads = 1024;
+    int blocks = (count + threads - 1) / threads;
+    crop_kernel<<<blocks, threads>>>(input, output, crop_top, crop_left, batch, channels, height, width, padding, count);
+}
+
+__global__ void flip_kernel(const float* input, float* output, const int* flip_mask,
+                            int batch, int channels, int height, int width, int count) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= count) return;
+
+    int w = idx % width;
+    int temp = idx / width;
+    int h = temp % height;
+    temp = temp / height;
+    int c = temp % channels;
+    int n = temp / channels;
+
+    if (flip_mask[n]) {
+        int in_x = width - 1 - w;
+        int in_idx = ((n * channels + c) * height + h) * width + in_x;
+        output[idx] = input[in_idx];
+    } else {
+        output[idx] = input[idx];
+    }
+}
+
+void flip_gpu(const float* input, float* output, const int* flip_mask,
+              int batch, int channels, int height, int width, int count) {
+    int threads = 1024;
+    int blocks = (count + threads - 1) / threads;
+    flip_kernel<<<blocks, threads>>>(input, output, flip_mask, batch, channels, height, width, count);
 }

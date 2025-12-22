@@ -13,16 +13,10 @@ class Parameter(TensorFull):
     pass
 
 class Module:
-    """
-    所有神经网络模块的基类。
-    """
     def __init__(self):
         self.training = True
 
     def parameters(self):
-        """
-        返回该模块及其子模块中的所有 Parameter 对象。
-        """
         params = []
         for attr_name in dir(self):
             attr = getattr(self, attr_name)
@@ -94,15 +88,31 @@ class SGD(Optimizer):
             if p.grad is None:
                 continue
             
-            params.append(p.realize_cached_data())
-            grads.append(p.grad.realize_cached_data())
+            # Use cached_data directly if available to avoid unnecessary computation
+            if p.cached_data is not None:
+                params.append(p.cached_data)
+            else:
+                params.append(p.realize_cached_data())
+                
+            if p.grad.cached_data is not None:
+                grads.append(p.grad.cached_data)
+            else:
+                grads.append(p.grad.realize_cached_data())
             
             if self.momentum > 0:
                 if i not in self.u:
                     # Initialize velocity with zeros
                     self.u[i] = Tensor(np.zeros(p.shape, dtype=np.float32), device=p.device)
                 
-                velocities.append(self.u[i].realize_cached_data())
+                if self.u[i].cached_data is not None:
+                    velocities.append(self.u[i].cached_data)
+                else:
+                    velocities.append(self.u[i].realize_cached_data())
+        
+        if not params:
+            return
+
+        py_tensor.sgd_step(params, grads, velocities, self.lr, self.momentum, self.weight_decay)
         
         if not params:
             return
@@ -131,15 +141,30 @@ class Adam(Optimizer):
             if p.grad is None:
                 continue
             
-            params.append(p.realize_cached_data())
-            grads.append(p.grad.realize_cached_data())
+            # Use cached_data directly if available
+            if p.cached_data is not None:
+                params.append(p.cached_data)
+            else:
+                params.append(p.realize_cached_data())
+                
+            if p.grad.cached_data is not None:
+                grads.append(p.grad.cached_data)
+            else:
+                grads.append(p.grad.realize_cached_data())
             
             if i not in self.m:
                 self.m[i] = Tensor(np.zeros(p.shape, dtype=np.float32), device=p.device)
                 self.v[i] = Tensor(np.zeros(p.shape, dtype=np.float32), device=p.device)
             
-            ms.append(self.m[i].realize_cached_data())
-            vs.append(self.v[i].realize_cached_data())
+            if self.m[i].cached_data is not None:
+                ms.append(self.m[i].cached_data)
+            else:
+                ms.append(self.m[i].realize_cached_data())
+                
+            if self.v[i].cached_data is not None:
+                vs.append(self.v[i].cached_data)
+            else:
+                vs.append(self.v[i].realize_cached_data())
             
         if not params:
             return
