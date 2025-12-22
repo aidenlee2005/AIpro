@@ -33,6 +33,7 @@ target_link_libraries(layers_cuda
         CUDA::cufft         # cuFFT (可选)
         CUDA::cusolver      # cuSolver (可选)
         CUDA::cusparse      # cuSparse (可选)
+        cudnn               # cuDNN
 )
 
 # ----------------------------------------------

@@ -504,6 +504,13 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp \
   /usr/local/cuda/include/cuda_fp16.h \
   /usr/local/cuda/include/cuda_bf16.hpp \
   /usr/local/cuda/include/library_types.h \
+  /usr/include/cudnn.h \
+  /usr/local/cuda/include/cuda_runtime_api.h \
+  /usr/include/cudnn_version.h \
+  /usr/include/cudnn_graph.h \
+  /usr/include/cudnn_ops.h \
+  /usr/include/cudnn_adv.h \
+  /usr/include/cudnn_cnn.h \
   /usr/local/cuda/include/curand.h \
   /usr/local/cuda/include/thrust/device_vector.h \
   /usr/local/cuda/include/thrust/detail/config.h \
@@ -708,7 +715,6 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp \
   /usr/local/cuda/include/thrust/system/cuda/detail/execution_policy.h \
   /usr/local/cuda/include/thrust/system/cuda/config.h \
   /usr/local/cuda/include/cub/detail/detect_cuda_runtime.cuh \
-  /usr/local/cuda/include/cuda_runtime_api.h \
   /usr/local/cuda/include/cub/util_debug.cuh \
   /usr/local/cuda/include/cub/config.cuh \
   /usr/local/cuda/include/cub/util_arch.cuh \
@@ -1201,15 +1207,15 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp \
 
 /usr/local/cuda/include/thrust/detail/device_ptr.inl:
 
-/usr/local/cuda/include/thrust/detail/config/global_workarounds.h:
+/usr/local/cuda/include/thrust/device_ptr.h:
 
-/usr/include/c++/11/istream:
+/usr/local/cuda/include/thrust/device_allocator.h:
 
-/usr/local/cuda/include/cuda/std/__type_traits/is_nothrow_move_constructible.h:
+/usr/local/cuda/include/thrust/iterator/detail/permutation_iterator_base.h:
 
-/usr/local/cuda/include/cuda/std/__utility/swap.h:
+/usr/local/cuda/include/thrust/system/detail/generic/scatter.inl:
 
-/usr/local/cuda/include/thrust/detail/config/deprecated.h:
+/usr/local/cuda/include/thrust/system/detail/generic/scatter.h:
 
 /usr/include/linux/posix_types.h:
 
@@ -1261,6 +1267,8 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp \
 
 /usr/local/cuda/include/thrust/detail/allocator/value_initialize_range.inl:
 
+/usr/local/cuda/include/cuda/std/__type_traits/is_char_like_type.h:
+
 /usr/local/cuda/include/cuda_bf16.h:
 
 /usr/local/cuda/include/thrust/system/detail/generic/scan.h:
@@ -1292,6 +1300,8 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp \
 /usr/include/c++/11/bits/mask_array.h:
 
 /usr/local/cuda/include/thrust/detail/type_traits/is_call_possible.h:
+
+/usr/include/cudnn.h:
 
 /usr/include/c++/11/bits/valarray_after.h:
 
@@ -1345,6 +1355,8 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp \
 
 /root/miniconda3/lib/python3.12/site-packages/pybind11/include/pybind11/gil.h:
 
+/usr/include/cudnn_version.h:
+
 /usr/include/x86_64-linux-gnu/bits/local_lim.h:
 
 /usr/local/cuda/include/cuda/std/__concepts/regular.h:
@@ -1376,6 +1388,12 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp \
 /usr/local/cuda/include/thrust/gather.h:
 
 /usr/include/x86_64-linux-gnu/c++/11/bits/ctype_inline.h:
+
+/usr/include/c++/11/istream:
+
+/usr/local/cuda/include/thrust/detail/config/global_workarounds.h:
+
+/usr/local/cuda/include/cuda/std/__type_traits/is_nothrow_move_constructible.h:
 
 /usr/include/c++/11/sstream:
 
@@ -1535,8 +1553,6 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp \
 
 /usr/local/cuda/include/cuda/std/__type_traits/is_trivially_default_constructible.h:
 
-/usr/include/c++/11/bit:
-
 /root/miniconda3/include/python3.12/patchlevel.h:
 
 /root/miniconda3/lib/python3.12/site-packages/pybind11/include/pybind11/detail/exception_translation.h:
@@ -1571,13 +1587,13 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp \
 
 /usr/include/c++/11/forward_list:
 
-/usr/local/cuda/include/thrust/detail/config/simple_defines.h:
-
 /usr/local/cuda/include/thrust/system/detail/sequential/replace.h:
 
 /usr/include/c++/11/type_traits:
 
 /usr/local/cuda/include/cuda/std/__algorithm/max_element.h:
+
+/usr/include/cudnn_adv.h:
 
 /root/miniconda3/lib/python3.12/site-packages/pybind11/include/pybind11/detail/dynamic_raw_ptr_cast_if_possible.h:
 
@@ -1639,6 +1655,12 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp \
 
 /usr/include/x86_64-linux-gnu/bits/errno.h:
 
+/usr/local/cuda/include/thrust/iterator/permutation_iterator.h:
+
+/usr/local/cuda/include/cub/util_type.cuh:
+
+/root/miniconda3/include/python3.12/dictobject.h:
+
 /usr/local/cuda/include/cuda/std/__type_traits/remove_extent.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/timer_t.h:
@@ -1646,6 +1668,10 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp \
 /usr/include/c++/11/bits/stl_tempbuf.h:
 
 /root/miniconda3/lib/python3.12/site-packages/pybind11/include/pybind11/conduit/wrap_include_python_h.h:
+
+/usr/local/cuda/include/thrust/detail/temporary_array.inl:
+
+/usr/local/cuda/include/thrust/pair.h:
 
 /usr/include/c++/11/cwctype:
 
@@ -1669,6 +1695,8 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp \
 
 /usr/include/x86_64-linux-gnu/bits/waitflags.h:
 
+/root/miniconda3/include/python3.12/cpython/traceback.h:
+
 /usr/include/x86_64-linux-gnu/bits/posix2_lim.h:
 
 /usr/local/cuda/include/cuda/std/__type_traits/add_pointer.h:
@@ -1682,8 +1710,6 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp \
 /usr/include/c++/11/bits/allocator.h:
 
 /usr/include/linux/limits.h:
-
-/usr/local/cuda/include/thrust/system/detail/generic/scatter.inl:
 
 /root/miniconda3/include/python3.12/rangeobject.h:
 
@@ -1786,8 +1812,6 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp \
 /usr/include/x86_64-linux-gnu/c++/11/bits/c++config.h:
 
 /usr/local/cuda/include/cuda/std/__fwd/memory_resource.h:
-
-/usr/local/cuda/include/thrust/iterator/detail/permutation_iterator_base.h:
 
 /usr/local/cuda/include/cuda/std/__type_traits/is_object.h:
 
@@ -1985,6 +2009,8 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp \
 
 /usr/include/pthread.h:
 
+/usr/local/cuda/include/cuda/std/__utility/swap.h:
+
 /root/miniconda3/include/python3.12/cpython/odictobject.h:
 
 /usr/local/cuda/include/nv/detail/__target_macros:
@@ -1998,6 +2024,10 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp \
 /usr/local/cuda/include/cuda/std/__type_traits/is_unbounded_array.h:
 
 /usr/include/stdc-predef.h:
+
+/usr/include/c++/11/bit:
+
+/usr/include/cudnn_ops.h:
 
 /usr/local/cuda/include/thrust/for_each.h:
 
@@ -2129,10 +2159,6 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp \
 
 /usr/local/cuda/include/cuda/std/__type_traits/is_convertible.h:
 
-/usr/local/cuda/include/thrust/detail/config/host_system.h:
-
-/usr/include/x86_64-linux-gnu/bits/time64.h:
-
 /usr/include/c++/11/cstring:
 
 /root/miniconda3/include/python3.12/traceback.h:
@@ -2150,8 +2176,6 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp \
 /usr/include/x86_64-linux-gnu/bits/uio_lim.h:
 
 /root/miniconda3/include/python3.12/cpython/compile.h:
-
-/root/miniconda3/include/python3.12/cpython/traceback.h:
 
 /root/miniconda3/include/python3.12/pymath.h:
 
@@ -2242,6 +2266,8 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp \
 /usr/local/cuda/include/cuda/std/__type_traits/add_lvalue_reference.h:
 
 /usr/local/cuda/include/cuda/std/__type_traits/is_primary_template.h:
+
+/usr/include/cudnn_cnn.h:
 
 /usr/include/x86_64-linux-gnu/asm/bitsperlong.h:
 
@@ -2507,6 +2533,10 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp \
 
 /usr/local/cuda/include/thrust/system/detail/sequential/equal.h:
 
+/usr/local/cuda/include/thrust/system/cuda/error.h:
+
+/usr/include/x86_64-linux-gnu/c++/11/bits/cpu_defines.h:
+
 /usr/local/cuda/include/cuda/std/version:
 
 /usr/local/cuda/include/cub/detail/detect_cuda_runtime.cuh:
@@ -2517,21 +2547,19 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp \
 
 /usr/local/cuda/include/thrust/system/cuda/detail/cross_system.h:
 
-/usr/local/cuda/include/thrust/system/cuda/error.h:
+/usr/local/cuda/include/thrust/detail/config/deprecated.h:
 
-/usr/include/x86_64-linux-gnu/c++/11/bits/cpu_defines.h:
+/usr/local/cuda/include/thrust/detail/config/simple_defines.h:
+
+/usr/include/x86_64-linux-gnu/bits/time64.h:
+
+/usr/local/cuda/include/thrust/detail/config/host_system.h:
 
 /usr/local/cuda/include/thrust/detail/config/namespace.h:
 
 /usr/include/x86_64-linux-gnu/bits/floatn.h:
 
 /usr/local/cuda/include/thrust/iterator/detail/iterator_category_to_system.h:
-
-/usr/local/cuda/include/cub/util_type.cuh:
-
-/root/miniconda3/include/python3.12/dictobject.h:
-
-/usr/local/cuda/include/thrust/iterator/permutation_iterator.h:
 
 /usr/include/c++/11/debug/debug.h:
 
@@ -2709,12 +2737,6 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp \
 
 /usr/local/cuda/include/thrust/system/detail/sequential/copy.inl:
 
-/usr/local/cuda/include/cuda/std/__type_traits/is_char_like_type.h:
-
-/usr/local/cuda/include/thrust/pair.h:
-
-/usr/local/cuda/include/thrust/detail/temporary_array.inl:
-
 /usr/local/cuda/include/cuda/std/__type_traits/is_trivial.h:
 
 /usr/local/cuda/include/thrust/system/detail/adl/generate.h:
@@ -2744,8 +2766,6 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp \
 /usr/include/time.h:
 
 /usr/local/cuda/include/cuda/std/__type_traits/is_nothrow_copy_constructible.h:
-
-/usr/local/cuda/include/thrust/system/detail/generic/scatter.h:
 
 /usr/local/cuda/include/thrust/system/cuda/pointer.h:
 
@@ -2880,6 +2900,8 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp \
 /root/miniconda3/include/python3.12/pystrtod.h:
 
 /usr/local/cuda/include/cub/util_compiler.cuh:
+
+/usr/include/cudnn_graph.h:
 
 /usr/local/cuda/include/cub/util_macro.cuh:
 
@@ -3357,9 +3379,9 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp \
 
 /usr/local/cuda/include/thrust/iterator/reverse_iterator.h:
 
-/usr/local/cuda/include/cuda_bf16.hpp:
-
 /usr/include/x86_64-linux-gnu/bits/posix1_lim.h:
+
+/usr/local/cuda/include/cuda_bf16.hpp:
 
 /usr/local/cuda/include/thrust/iterator/detail/reverse_iterator_base.h:
 
@@ -3436,7 +3458,3 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: ../csrc/pybind_tensor.cpp \
 /usr/local/cuda/include/thrust/detail/replace.inl:
 
 /usr/local/cuda/include/thrust/system/detail/adl/scatter.h:
-
-/usr/local/cuda/include/thrust/device_allocator.h:
-
-/usr/local/cuda/include/thrust/device_ptr.h:

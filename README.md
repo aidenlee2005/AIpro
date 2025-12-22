@@ -11,6 +11,7 @@
 *   **软件依赖**:
     *   **Python**: >= 3.8 (开发环境使用 3.12)
     *   **CUDA Toolkit**: >= 11.0 (开发环境使用 12.8)
+    *   **cuDNN**: >= 8.0 (用于高性能卷积算子)
     *   **CMake**: >= 3.18 (开发环境使用 3.22)
     *   **C++ 编译器**: 支持 C++14 的编译器 (如 g++ 7+)
 
@@ -67,6 +68,12 @@ pip install torch torchvision
 4.  **ResNet 网络**
     ```bash
     python examples/train_resnet_aug.py
+    ```
+
+5.  **高性能融合算子 (cuDNN)**
+    使用集成了 cuDNN 的 Conv2D+ReLU 融合算子进行训练，适合追求更高性能的场景。
+    ```bash
+    python examples/train_cnn_fused.py
     ```
 
 所有脚本运行后，训练日志会自动记录到 `examples/new_training_log.csv`，模型文件会保存到 `examples/models/` 目录。

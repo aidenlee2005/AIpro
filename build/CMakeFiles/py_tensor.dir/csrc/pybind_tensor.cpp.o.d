@@ -419,7 +419,11 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: \
  /usr/local/cuda/include/cuda_fp16.hpp \
  /usr/local/cuda/include/cuda_bf16.h /usr/local/cuda/include/cuda_fp16.h \
  /usr/local/cuda/include/cuda_bf16.hpp \
- /usr/local/cuda/include/library_types.h /usr/local/cuda/include/curand.h \
+ /usr/local/cuda/include/library_types.h /usr/include/cudnn.h \
+ /usr/local/cuda/include/cuda_runtime_api.h /usr/include/cudnn_version.h \
+ /usr/include/cudnn_graph.h /usr/include/cudnn_ops.h \
+ /usr/include/cudnn_adv.h /usr/include/cudnn_cnn.h \
+ /usr/local/cuda/include/curand.h \
  /usr/local/cuda/include/thrust/device_vector.h \
  /usr/local/cuda/include/thrust/detail/config.h \
  /usr/local/cuda/include/thrust/detail/config/config.h \
@@ -623,7 +627,6 @@ CMakeFiles/py_tensor.dir/csrc/pybind_tensor.cpp.o: \
  /usr/local/cuda/include/thrust/system/cuda/detail/execution_policy.h \
  /usr/local/cuda/include/thrust/system/cuda/config.h \
  /usr/local/cuda/include/cub/detail/detect_cuda_runtime.cuh \
- /usr/local/cuda/include/cuda_runtime_api.h \
  /usr/local/cuda/include/cub/util_debug.cuh \
  /usr/local/cuda/include/cub/config.cuh \
  /usr/local/cuda/include/cub/util_arch.cuh \

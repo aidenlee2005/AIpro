@@ -1,5 +1,7 @@
 #include "layers.h"
 #include "memory_pool.h"
+#include <map>
+#include <tuple>
 #include <cuda.h>
 #include <cublas_v2.h>
 #include <curand.h>
@@ -715,6 +717,325 @@ void sgd_update_gpu(float* param, const float* grad, float* velocity,
     sgd_update_kernel<<<gridSize, blockSize, 0, stream>>>(param, grad, velocity, lr, momentum, weight_decay, size);
 }
 
+// ===========Batch SGD=============
+__global__ void batch_sgd_update_kernel(float* params, const float* grads, float* velocities,
+                                        float lr, float momentum, float weight_decay, int total_size) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < total_size) {
+        float g = grads[idx];
+        
+        // Apply weight decay first
+        if (weight_decay != 0.0f) {
+            g += params[idx] * weight_decay;
+        }
+        
+        if (momentum != 0.0f && velocities != nullptr) {
+            // Update velocity: v = v * momentum + g
+            float v_old = velocities[idx];
+            float v_new = v_old * momentum + g;
+            velocities[idx] = v_new;
+            // Update parameter: param -= lr * v
+            params[idx] -= lr * v_new;
+        } else {
+            // No momentum: param -= lr * g
+            params[idx] -= lr * g;
+        }
+    }
+}
+
+// ===========Fused Operations=============
+
+// Fused Conv2D + ReLU forward function
+void conv2d_relu_forward_gpu(const float* input, const float* filter, const float* bias, float* output,
+                            int batch_size, int out_channels, int in_channels,
+                            int height, int width, int kernel_size, int stride, int padding,
+                            cudaStream_t stream) {
+    static cudnnHandle_t cudnn = nullptr;
+    static cudnnTensorDescriptor_t input_desc = nullptr;
+    static cudnnFilterDescriptor_t filter_desc = nullptr;
+    static cudnnConvolutionDescriptor_t conv_desc = nullptr;
+    static cudnnTensorDescriptor_t output_desc = nullptr;
+    static cudnnActivationDescriptor_t activation_desc = nullptr;
+    static cudnnTensorDescriptor_t bias_desc = nullptr;
+
+    if (cudnn == nullptr) {
+        cudnnCreate(&cudnn);
+        cudnnCreateTensorDescriptor(&input_desc);
+        cudnnCreateFilterDescriptor(&filter_desc);
+        cudnnCreateConvolutionDescriptor(&conv_desc);
+        cudnnCreateTensorDescriptor(&output_desc);
+        cudnnCreateActivationDescriptor(&activation_desc);
+        cudnnCreateTensorDescriptor(&bias_desc);
+    }
+    cudnnSetStream(cudnn, stream);
+
+    cudnnSetTensor4dDescriptor(input_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
+                               batch_size, in_channels, height, width);
+
+    cudnnSetFilter4dDescriptor(filter_desc, CUDNN_DATA_FLOAT, CUDNN_TENSOR_NCHW,
+                               out_channels, in_channels, kernel_size, kernel_size);
+
+    cudnnSetConvolution2dDescriptor(conv_desc, padding, padding, stride, stride, 1, 1,
+                                    CUDNN_CROSS_CORRELATION, CUDNN_DATA_FLOAT);
+
+    // Enable Tensor Cores
+    cudnnSetConvolutionMathType(conv_desc, CUDNN_TENSOR_OP_MATH);
+
+    int out_n, out_c, out_h, out_w;
+    cudnnGetConvolution2dForwardOutputDim(conv_desc, input_desc, filter_desc,
+                                          &out_n, &out_c, &out_h, &out_w);
+
+    cudnnSetTensor4dDescriptor(output_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
+                               out_n, out_c, out_h, out_w);
+
+    // Activation Descriptor for ReLU
+    cudnnSetActivationDescriptor(activation_desc, CUDNN_ACTIVATION_RELU, CUDNN_NOT_PROPAGATE_NAN, 0.0);
+
+    // Find best algorithm with caching
+    using AlgoKey = std::tuple<int, int, int, int, int, int, int>;
+    static std::map<AlgoKey, cudnnConvolutionFwdAlgo_t> algo_cache;
+    AlgoKey key = std::make_tuple(batch_size, out_channels, in_channels, height, width, kernel_size, stride);
+    
+    cudnnConvolutionFwdAlgo_t algo;
+    auto it = algo_cache.find(key);
+    if (it != algo_cache.end()) {
+        algo = it->second;
+    } else {
+        int requestedAlgoCount = 1;
+        int returnedAlgoCount;
+        cudnnConvolutionFwdAlgoPerf_t perfResults;
+        cudnnGetConvolutionForwardAlgorithm_v7(cudnn, input_desc, filter_desc, conv_desc, output_desc,
+                                               requestedAlgoCount, &returnedAlgoCount, &perfResults);
+        algo = perfResults.algo;
+        algo_cache[key] = algo;
+    }
+
+    size_t workspace_size = 0;
+    cudnnGetConvolutionForwardWorkspaceSize(cudnn, input_desc, filter_desc, conv_desc, output_desc, algo, &workspace_size);
+
+    void* workspace = nullptr;
+    if (workspace_size > 0) {
+        workspace = MemoryPool::instance().allocate(workspace_size);
+    }
+
+    float alpha = 1.0f, beta = 0.0f;
+    
+    // Bias
+    cudnnSetTensor4dDescriptor(bias_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, 1, out_channels, 1, 1);
+    
+    const float* d_bias = bias;
+    bool allocated_bias = false;
+    if (d_bias == nullptr) {
+        d_bias = (float*)MemoryPool::instance().allocate(out_channels * sizeof(float));
+        cudaMemsetAsync((void*)d_bias, 0, out_channels * sizeof(float), stream);
+        allocated_bias = true;
+    }
+
+    cudnnConvolutionBiasActivationForward(cudnn,
+                                          &alpha, input_desc, input,
+                                          filter_desc, filter,
+                                          conv_desc, algo, workspace, workspace_size,
+                                          &beta, output_desc, output,
+                                          bias_desc, d_bias,
+                                          activation_desc, output_desc, output);
+
+    if (workspace_size > 0) {
+        MemoryPool::instance().deallocate(workspace, workspace_size);
+    }
+    if (allocated_bias) {
+        MemoryPool::instance().deallocate((void*)d_bias, out_channels * sizeof(float));
+    }
+}
+
+__global__ void nchw_to_nhwc_relu_mask_kernel(const float* bchw, const float* output, float* bhwc,
+                                      int batch, int out_channels, int height, int width){
+    size_t idx = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+    size_t total = (size_t)batch * out_channels * height * width;
+    if (idx >= total) return;
+
+    // idx corresponds to NCHW layout
+    float val = bchw[idx];
+    
+    // Apply ReLU mask: if output <= 0, gradient is 0
+    if (output[idx] <= 0.0f) {
+        val = 0.0f;
+    }
+
+    // 依据 NCHW 线性布局恢复坐标： idx = (((b * C + oc) * H) + h) * W + w
+    int w = idx % width;
+    size_t t = idx / width;
+    int h = t % height;
+    t = t / height;
+    int oc = t % out_channels;
+    int b = t / out_channels;
+
+    int col_h = height * width;
+    int outcol_idx = (b * col_h + h * width + w) * out_channels + oc;
+    bhwc[outcol_idx] = val;
+}
+
+// Fused Conv2D + ReLU backward function
+void conv2d_relu_backward_gpu(const float* grad_output, const float* output, 
+                             const float* input, const float* filter,
+                             float* grad_input, float* grad_filter, float* grad_bias,
+                             int batch_size, int out_channels, int in_channels,
+                             int height, int width, int kernel_size, int stride, int padding,
+                             cudaStream_t stream = 0) {
+    static cudnnHandle_t cudnn = nullptr;
+    static cudnnTensorDescriptor_t x_desc = nullptr;
+    static cudnnTensorDescriptor_t y_desc = nullptr;
+    static cudnnTensorDescriptor_t dx_desc = nullptr;
+    static cudnnTensorDescriptor_t dy_desc = nullptr;
+    static cudnnFilterDescriptor_t w_desc = nullptr;
+    static cudnnFilterDescriptor_t dw_desc = nullptr;
+    static cudnnConvolutionDescriptor_t conv_desc = nullptr;
+    static cudnnActivationDescriptor_t act_desc = nullptr;
+    static cudnnTensorDescriptor_t db_desc = nullptr;
+
+    if (cudnn == nullptr) {
+        cudnnCreate(&cudnn);
+        cudnnCreateTensorDescriptor(&x_desc);
+        cudnnCreateTensorDescriptor(&y_desc);
+        cudnnCreateTensorDescriptor(&dx_desc);
+        cudnnCreateTensorDescriptor(&dy_desc);
+        cudnnCreateFilterDescriptor(&w_desc);
+        cudnnCreateFilterDescriptor(&dw_desc);
+        cudnnCreateConvolutionDescriptor(&conv_desc);
+        cudnnCreateActivationDescriptor(&act_desc);
+        cudnnCreateTensorDescriptor(&db_desc);
+    }
+    cudnnSetStream(cudnn, stream);
+
+    // Set descriptors
+    // Input X: (N, C_in, H, W)
+    cudnnSetTensor4dDescriptor(x_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
+                               batch_size, in_channels, height, width);
+    cudnnSetTensor4dDescriptor(dx_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
+                               batch_size, in_channels, height, width);
+
+    // Filter W: (C_out, C_in, K, K)
+    cudnnSetFilter4dDescriptor(w_desc, CUDNN_DATA_FLOAT, CUDNN_TENSOR_NCHW,
+                               out_channels, in_channels, kernel_size, kernel_size);
+    cudnnSetFilter4dDescriptor(dw_desc, CUDNN_DATA_FLOAT, CUDNN_TENSOR_NCHW,
+                               out_channels, in_channels, kernel_size, kernel_size);
+
+    // Convolution
+    cudnnSetConvolution2dDescriptor(conv_desc, padding, padding, stride, stride, 1, 1,
+                                    CUDNN_CROSS_CORRELATION, CUDNN_DATA_FLOAT);
+    cudnnSetConvolutionMathType(conv_desc, CUDNN_TENSOR_OP_MATH);
+
+    // Output Y dimensions
+    int out_n, out_c, out_h, out_w;
+    cudnnGetConvolution2dForwardOutputDim(conv_desc, x_desc, w_desc,
+                                          &out_n, &out_c, &out_h, &out_w);
+
+    // Output Y: (N, C_out, H_out, W_out)
+    cudnnSetTensor4dDescriptor(y_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
+                               out_n, out_c, out_h, out_w);
+    cudnnSetTensor4dDescriptor(dy_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
+                               out_n, out_c, out_h, out_w);
+
+    // Activation
+    cudnnSetActivationDescriptor(act_desc, CUDNN_ACTIVATION_RELU, CUDNN_NOT_PROPAGATE_NAN, 0.0);
+
+    // 1. Backward Activation (ReLU)
+    // We need a temporary buffer for d_conv_output (gradient before ReLU)
+    // d_conv_output has same shape as Y
+    size_t y_size = out_n * out_c * out_h * out_w * sizeof(float);
+    float* d_conv_output = (float*)MemoryPool::instance().allocate(y_size);
+
+    float alpha = 1.0f, beta = 0.0f;
+    // cudnnActivationBackward(handle, actDesc, alpha, yDesc, y, dyDesc, dy, xDesc, x, beta, dxDesc, dx)
+    // Here: y=output, dy=grad_output, x=output (safe for ReLU), dx=d_conv_output
+    cudnnActivationBackward(cudnn, act_desc, &alpha,
+                            y_desc, output,
+                            dy_desc, grad_output,
+                            y_desc, output, // x = y for ReLU
+                            &beta,
+                            dy_desc, d_conv_output);
+
+    // Caching setup
+    using AlgoKey = std::tuple<int, int, int, int, int, int, int>;
+    static std::map<AlgoKey, cudnnConvolutionBwdDataAlgo_t> data_algo_cache;
+    static std::map<AlgoKey, cudnnConvolutionBwdFilterAlgo_t> filter_algo_cache;
+    AlgoKey key = std::make_tuple(batch_size, out_channels, in_channels, height, width, kernel_size, stride);
+
+    // 2. Backward Data (dX)
+    cudnnConvolutionBwdDataAlgo_t data_algo;
+    auto it_data = data_algo_cache.find(key);
+    if (it_data != data_algo_cache.end()) {
+        data_algo = it_data->second;
+    } else {
+        int returnedAlgoCount;
+        cudnnConvolutionBwdDataAlgoPerf_t data_perfResults;
+        cudnnGetConvolutionBackwardDataAlgorithm_v7(cudnn, w_desc, dy_desc, conv_desc, dx_desc,
+                                                    1, &returnedAlgoCount, &data_perfResults);
+        data_algo = data_perfResults.algo;
+        data_algo_cache[key] = data_algo;
+    }
+
+    size_t data_workspace_size = 0;
+    cudnnGetConvolutionBackwardDataWorkspaceSize(cudnn, w_desc, dy_desc, conv_desc, dx_desc, data_algo, &data_workspace_size);
+    
+    void* data_workspace = nullptr;
+    if (data_workspace_size > 0) {
+        data_workspace = MemoryPool::instance().allocate(data_workspace_size);
+    }
+
+    cudnnConvolutionBackwardData(cudnn, &alpha,
+                                 w_desc, filter,
+                                 dy_desc, d_conv_output,
+                                 conv_desc, data_algo, data_workspace, data_workspace_size,
+                                 &beta, dx_desc, grad_input);
+
+    if (data_workspace_size > 0) {
+        MemoryPool::instance().deallocate(data_workspace, data_workspace_size);
+    }
+
+    // 3. Backward Filter (dW)
+    cudnnConvolutionBwdFilterAlgo_t filter_algo;
+    auto it_filter = filter_algo_cache.find(key);
+    if (it_filter != filter_algo_cache.end()) {
+        filter_algo = it_filter->second;
+    } else {
+        int returnedAlgoCount;
+        cudnnConvolutionBwdFilterAlgoPerf_t filter_perfResults;
+        cudnnGetConvolutionBackwardFilterAlgorithm_v7(cudnn, x_desc, dy_desc, conv_desc, dw_desc,
+                                                      1, &returnedAlgoCount, &filter_perfResults);
+        filter_algo = filter_perfResults.algo;
+        filter_algo_cache[key] = filter_algo;
+    }
+
+    size_t filter_workspace_size = 0;
+    cudnnGetConvolutionBackwardFilterWorkspaceSize(cudnn, x_desc, dy_desc, conv_desc, dw_desc, filter_algo, &filter_workspace_size);
+
+    void* filter_workspace = nullptr;
+    if (filter_workspace_size > 0) {
+        filter_workspace = MemoryPool::instance().allocate(filter_workspace_size);
+    }
+
+    cudnnConvolutionBackwardFilter(cudnn, &alpha,
+                                   x_desc, input,
+                                   dy_desc, d_conv_output,
+                                   conv_desc, filter_algo, filter_workspace, filter_workspace_size,
+                                   &beta, dw_desc, grad_filter);
+
+    if (filter_workspace_size > 0) {
+        MemoryPool::instance().deallocate(filter_workspace, filter_workspace_size);
+    }
+
+    // 4. Backward Bias (db)
+    if (grad_bias != nullptr) {
+        cudnnSetTensor4dDescriptor(db_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, 1, out_channels, 1, 1);
+        cudnnConvolutionBackwardBias(cudnn, &alpha,
+                                     dy_desc, d_conv_output,
+                                     &beta, db_desc, grad_bias);
+    }
+
+    // Cleanup
+    MemoryPool::instance().deallocate(d_conv_output, y_size);
+}
+
 // ===========Adam=============
 __global__ void adam_update_kernel(float* param, const float* grad, float* m, float* v,
                                    float lr, float beta1, float beta2, float eps, float weight_decay, 
@@ -743,6 +1064,13 @@ __global__ void adam_update_kernel(float* param, const float* grad, float* m, fl
         // Update parameters
         param[idx] -= lr * m_hat / (sqrtf(v_hat) + eps);
     }
+}
+
+void batch_sgd_update_gpu(float* params, const float* grads, float* velocities,
+                          float lr, float momentum, float weight_decay, int total_size, cudaStream_t stream) {
+    int blockSize = 256;
+    int gridSize = (total_size + blockSize - 1) / blockSize;
+    batch_sgd_update_kernel<<<gridSize, blockSize, 0, stream>>>(params, grads, velocities, lr, momentum, weight_decay, total_size);
 }
 
 void adam_update_gpu(float* param, const float* grad, float* m, float* v,

@@ -124,6 +124,97 @@ static std::tuple<TensorPtr, TensorPtr> conv2d_backward(const TensorPtr& grad_ou
     return std::make_tuple(grad_input, grad_filter);
 }
 
+// Fused Conv2D + ReLU forward
+static TensorPtr conv2d_relu_forward(const TensorPtr& input, const TensorPtr& filter, 
+                                    int kernel_size = 3, int stride = 1, int padding = 1){
+    int batch_size = input->get_shape()[0];
+    int out_channels = filter->get_shape()[0];
+    int in_channels = input->get_shape()[1];
+    int height = input->get_shape()[2];
+    int width = input->get_shape()[3];
+    
+    int out_height = (height + 2 * padding - kernel_size) / stride + 1;
+    int out_width = (width + 2 * padding - kernel_size) / stride + 1;
+    std::vector<int> out_shape = {batch_size, out_channels, out_height, out_width};
+    
+    TensorPtr output = make_tensor_like(input, out_shape);
+    
+    // Optional bias
+    const float* bias_ptr = nullptr;
+    // We can add bias argument to this function, but for now let's keep it simple or add it.
+    // Let's assume no bias for now in this wrapper, or update wrapper signature.
+    // But wait, I need to update the wrapper signature to support bias.
+    
+    conv2d_relu_forward_gpu(input->data(), filter->data(), nullptr, output->data(),
+                           batch_size, out_channels, in_channels, height, width,
+                           kernel_size, stride, padding, 0);
+    return output;
+}
+
+// Fused Conv2D + ReLU forward with bias
+static TensorPtr conv2d_relu_forward_bias(const TensorPtr& input, const TensorPtr& filter, const TensorPtr& bias,
+                                         int kernel_size = 3, int stride = 1, int padding = 1){
+    int batch_size = input->get_shape()[0];
+    int out_channels = filter->get_shape()[0];
+    int in_channels = input->get_shape()[1];
+    int height = input->get_shape()[2];
+    int width = input->get_shape()[3];
+    
+    int out_height = (height + 2 * padding - kernel_size) / stride + 1;
+    int out_width = (width + 2 * padding - kernel_size) / stride + 1;
+    std::vector<int> out_shape = {batch_size, out_channels, out_height, out_width};
+    
+    TensorPtr output = make_tensor_like(input, out_shape);
+    
+    conv2d_relu_forward_gpu(input->data(), filter->data(), bias->data(), output->data(),
+                           batch_size, out_channels, in_channels, height, width,
+                           kernel_size, stride, padding, 0);
+    return output;
+}
+
+// Fused Conv2D + ReLU backward
+static std::tuple<TensorPtr, TensorPtr> conv2d_relu_backward(const TensorPtr& grad_output, const TensorPtr& output,
+                                                            const TensorPtr& input, const TensorPtr& filter,
+                                                            int kernel_size = 3, int stride = 1, int padding = 1){
+    int batch_size = input->get_shape()[0];
+    int out_channels = filter->get_shape()[0];
+    int in_channels = input->get_shape()[1];
+    int height = input->get_shape()[2];
+    int width = input->get_shape()[3];
+    
+    TensorPtr grad_input = make_tensor_like(input, input->get_shape());
+    TensorPtr grad_filter = make_tensor_like(filter, filter->get_shape());
+    
+    conv2d_relu_backward_gpu(grad_output->data(), output->data(), input->data(), filter->data(),
+                            grad_input->data(), grad_filter->data(), nullptr,
+                            batch_size, out_channels, in_channels, height, width,
+                            kernel_size, stride, padding, 0);
+                            
+    return std::make_tuple(grad_input, grad_filter);
+}
+
+// Fused Conv2D + ReLU backward with bias
+static std::tuple<TensorPtr, TensorPtr, TensorPtr> conv2d_relu_backward_bias(const TensorPtr& grad_output, const TensorPtr& output,
+                                                            const TensorPtr& input, const TensorPtr& filter, const TensorPtr& bias,
+                                                            int kernel_size = 3, int stride = 1, int padding = 1){
+    int batch_size = input->get_shape()[0];
+    int out_channels = filter->get_shape()[0];
+    int in_channels = input->get_shape()[1];
+    int height = input->get_shape()[2];
+    int width = input->get_shape()[3];
+    
+    TensorPtr grad_input = make_tensor_like(input, input->get_shape());
+    TensorPtr grad_filter = make_tensor_like(filter, filter->get_shape());
+    TensorPtr grad_bias = make_tensor_like(bias, bias->get_shape());
+    
+    conv2d_relu_backward_gpu(grad_output->data(), output->data(), input->data(), filter->data(),
+                            grad_input->data(), grad_filter->data(), grad_bias->data(),
+                            batch_size, out_channels, in_channels, height, width,
+                            kernel_size, stride, padding, 0);
+                            
+    return std::make_tuple(grad_input, grad_filter, grad_bias);
+}
+
 static TensorPtr max_pool2d_forward(const TensorPtr& input){
     int batch_size = input->get_shape()[0];
     int in_channels = input->get_shape()[1];
@@ -236,6 +327,69 @@ static void sgd_step(std::vector<TensorPtr>& params,
     }
     
     // Synchronize stream instead of device
+    cudaStreamSynchronize(stream);
+    cudaStreamDestroy(stream);
+}
+
+static void batch_sgd_step(std::vector<TensorPtr>& params, 
+                           std::vector<TensorPtr>& grads, 
+                           std::vector<TensorPtr>& velocities,
+                           std::vector<int>& param_sizes,
+                           float lr, float momentum, float weight_decay) {
+    // Create CUDA stream for asynchronous execution
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+    
+    // Calculate total size and offsets
+    size_t total_size = 0;
+    std::vector<size_t> offsets;
+    for (int size : param_sizes) {
+        offsets.push_back(total_size);
+        total_size += size;
+    }
+    
+    // Allocate contiguous memory for all parameters and gradients
+    TensorPtr all_params = std::make_shared<TensorF>(std::vector<int>{(int)total_size}, Device::GPU);
+    TensorPtr all_grads = std::make_shared<TensorF>(std::vector<int>{(int)total_size}, Device::GPU);
+    TensorPtr all_velocities = nullptr;
+    if (momentum > 0) {
+        all_velocities = std::make_shared<TensorF>(std::vector<int>{(int)total_size}, Device::GPU);
+    }
+    
+    // Copy data to contiguous arrays
+    size_t current_offset = 0;
+    for (size_t i = 0; i < params.size(); ++i) {
+        int size = param_sizes[i];
+        cudaMemcpyAsync(all_params->data() + current_offset, params[i]->data(), 
+                       size * sizeof(float), cudaMemcpyDeviceToDevice, stream);
+        cudaMemcpyAsync(all_grads->data() + current_offset, grads[i]->data(), 
+                       size * sizeof(float), cudaMemcpyDeviceToDevice, stream);
+        if (momentum > 0) {
+            cudaMemcpyAsync(all_velocities->data() + current_offset, velocities[i]->data(), 
+                           size * sizeof(float), cudaMemcpyDeviceToDevice, stream);
+        }
+        current_offset += size;
+    }
+    
+    // Launch batched kernel
+    batch_sgd_update_gpu(all_params->data(), all_grads->data(), 
+                         all_velocities ? all_velocities->data() : nullptr,
+                         lr, momentum, weight_decay, total_size, stream);
+    
+    // Copy results back
+    current_offset = 0;
+    for (size_t i = 0; i < params.size(); ++i) {
+        int size = param_sizes[i];
+        cudaMemcpyAsync(params[i]->data(), all_params->data() + current_offset, 
+                       size * sizeof(float), cudaMemcpyDeviceToDevice, stream);
+        if (momentum > 0) {
+            cudaMemcpyAsync(velocities[i]->data(), all_velocities->data() + current_offset, 
+                           size * sizeof(float), cudaMemcpyDeviceToDevice, stream);
+        }
+        current_offset += size;
+    }
+    
+    // Synchronize stream
     cudaStreamSynchronize(stream);
     cudaStreamDestroy(stream);
 }
@@ -645,6 +799,14 @@ PYBIND11_MODULE(py_tensor, m) {
     m.def("fc_backward", &fc_backward, py::arg("output_grad"), py::arg("input"), py::arg("weight"), py::arg("bias"));
     m.def("conv2d_forward", &conv2d_forward, py::arg("input"), py::arg("filter"));
     m.def("conv2d_backward", &conv2d_backward, py::arg("output_grad"), py::arg("input"), py::arg("filter"));
+    m.def("conv2d_relu_forward", &conv2d_relu_forward, py::arg("input"), py::arg("filter"), 
+          py::arg("kernel_size") = 3, py::arg("stride") = 1, py::arg("padding") = 1);
+    m.def("conv2d_relu_forward_bias", &conv2d_relu_forward_bias, py::arg("input"), py::arg("filter"), py::arg("bias"),
+          py::arg("kernel_size") = 3, py::arg("stride") = 1, py::arg("padding") = 1);
+    m.def("conv2d_relu_backward", &conv2d_relu_backward, py::arg("output_grad"), py::arg("output"), py::arg("input"), py::arg("filter"),
+          py::arg("kernel_size") = 3, py::arg("stride") = 1, py::arg("padding") = 1);
+    m.def("conv2d_relu_backward_bias", &conv2d_relu_backward_bias, py::arg("output_grad"), py::arg("output"), py::arg("input"), py::arg("filter"), py::arg("bias"),
+          py::arg("kernel_size") = 3, py::arg("stride") = 1, py::arg("padding") = 1);
     m.def("max_pool2d_forward", &max_pool2d_forward, py::arg("input"));
     m.def("max_pool2d_forward_mask", &max_pool2d_forward_mask, py::arg("input"));
     m.def("max_pool2d_backward", &max_pool2d_backward, py::arg("output_grad"), py::arg("mask"), py::arg("input"));
@@ -653,6 +815,8 @@ PYBIND11_MODULE(py_tensor, m) {
     m.def("cross_entropy_backward", &cross_entropy_backward, py::arg("input"), py::arg("labels"));
     m.def("sgd_step", &sgd_step, py::arg("params"), py::arg("grads"), py::arg("velocities"),
           py::arg("lr"), py::arg("momentum"), py::arg("weight_decay"));
+    m.def("batch_sgd_step", &batch_sgd_step, py::arg("params"), py::arg("grads"), py::arg("velocities"),
+          py::arg("param_sizes"), py::arg("lr"), py::arg("momentum"), py::arg("weight_decay"));
     m.def("adam_step", &adam_step, py::arg("params"), py::arg("grads"), py::arg("ms"), py::arg("vs"),
           py::arg("lr"), py::arg("beta1"), py::arg("beta2"), py::arg("eps"), py::arg("weight_decay"), py::arg("t"));
 

@@ -187,6 +187,11 @@ class Tensor(Value):
     def conv2d(self, weight):
         return Conv2D()(self, weight)
 
+    def conv2d_relu(self, weight, bias=None, kernel_size=3, stride=1, padding=1):
+        if bias is not None:
+            return ConvReLU(kernel_size, stride, padding)(self, weight, bias)
+        return ConvReLU(kernel_size, stride, padding)(self, weight)
+
     def max_pool2d(self):
         return MaxPool2D()(self)
 
@@ -578,6 +583,48 @@ class Conv2D(TensorOp):
 
 def conv2d(input, weight):
     return Conv2D()(input, weight)
+
+
+class ConvReLU(TensorOp):
+    def __init__(self, kernel_size=3, stride=1, padding=1):
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.padding = padding
+
+    def compute(self, input: MyTensor, weight: MyTensor, bias: Optional[MyTensor] = None):
+        if bias is not None:
+            return py.conv2d_relu_forward_bias(input, weight, bias, self.kernel_size, self.stride, self.padding)
+        return py.conv2d_relu_forward(input, weight, self.kernel_size, self.stride, self.padding)
+
+    def gradient(self, out_grad: Tensor, node: Tensor):
+        if len(node.inputs) == 3:
+            input, weight, bias = node.inputs
+            input_t = input.realize_cached_data()
+            weight_t = weight.realize_cached_data()
+            bias_t = bias.realize_cached_data()
+            out_grad_t = out_grad.realize_cached_data()
+            output_t = node.realize_cached_data()
+            
+            grad_input_t, grad_weight_t, grad_bias_t = py.conv2d_relu_backward_bias(out_grad_t, output_t, input_t, weight_t, bias_t,
+                                                                self.kernel_size, self.stride, self.padding)
+            return Tensor.make_const(grad_input_t), Tensor.make_const(grad_weight_t), Tensor.make_const(grad_bias_t)
+        else:
+            input, weight = node.inputs[0], node.inputs[1]
+            input_t = input.realize_cached_data()
+            weight_t = weight.realize_cached_data()
+            out_grad_t = out_grad.realize_cached_data()
+            output_t = node.realize_cached_data()
+            
+            grad_input_t, grad_weight_t = py.conv2d_relu_backward(out_grad_t, output_t, input_t, weight_t, 
+                                                                self.kernel_size, self.stride, self.padding)
+            
+            return Tensor.make_const(grad_input_t), Tensor.make_const(grad_weight_t)
+
+
+def conv2d_relu(input, weight, bias=None, kernel_size=3, stride=1, padding=1):
+    if bias is not None:
+        return ConvReLU(kernel_size, stride, padding)(input, weight, bias)
+    return ConvReLU(kernel_size, stride, padding)(input, weight)
 
 
 class MaxPool2D(TensorOp):

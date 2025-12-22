@@ -113,11 +113,6 @@ class SGD(Optimizer):
             return
 
         py_tensor.sgd_step(params, grads, velocities, self.lr, self.momentum, self.weight_decay)
-        
-        if not params:
-            return
-
-        py_tensor.sgd_step(params, grads, velocities, self.lr, self.momentum, self.weight_decay)
 
 class Adam(Optimizer):
     def __init__(self, params, lr=0.001, beta1=0.9, beta2=0.999, eps=1e-8, weight_decay=0.0):
@@ -230,6 +225,38 @@ class Conv2d(Module):
         if self.bias:
             return out + self.bias.reshape((1, self.out_channels, 1, 1)).broadcast_to(out.shape)
         return out
+
+class ConvReLU(Module):
+    def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=True, device=None, dtype="float32"):
+        super().__init__()
+        if kernel_size != 3:
+            raise ValueError("Only kernel_size=3 is supported")
+        if stride != 1:
+            raise ValueError("Only stride=1 is supported")
+        if padding != 1:
+            raise ValueError("Only padding=1 is supported")
+
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.padding = padding
+
+        # 初始化权重 (Kaiming He)
+        limit = np.sqrt(6 / (in_channels * kernel_size * kernel_size + out_channels * kernel_size * kernel_size))
+        weight_data = np.random.uniform(-limit, limit, (out_channels, in_channels, kernel_size, kernel_size)).astype(dtype)
+        self.weight = Parameter(weight_data, device=device, dtype=dtype)
+
+        if bias:
+            bias_data = np.zeros((out_channels,), dtype=dtype)
+            self.bias = Parameter(bias_data, device=device, dtype=dtype)
+        else:
+            self.bias = None
+
+    def forward(self, x):
+        if self.bias:
+            return x.conv2d_relu(self.weight, bias=self.bias, kernel_size=self.kernel_size, stride=self.stride, padding=self.padding)
+        return x.conv2d_relu(self.weight, kernel_size=self.kernel_size, stride=self.stride, padding=self.padding)
 
 class MaxPool2d(Module):
     def __init__(self, kernel_size, stride=None, padding=0):

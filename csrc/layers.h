@@ -3,6 +3,7 @@
 
 #include <cuda.h>
 #include <cublas_v2.h>
+#include <cudnn.h>
 #include <curand.h>
 #include <cuda_runtime.h>
 #include <thrust/device_vector.h>
@@ -102,6 +103,25 @@ void sgd_update_gpu(float* param, const float* grad, float* velocity,
 void adam_update_gpu(float* param, const float* grad, float* m, float* v,
                      float lr, float beta1, float beta2, float eps, float weight_decay, 
                      int step, int size, cudaStream_t stream);
+
+// Batch SGD update function
+void batch_sgd_update_gpu(float* params, const float* grads, float* velocities,
+                          float lr, float momentum, float weight_decay, int total_size, cudaStream_t stream);
+
+// ===========Fused Operations=============
+
+// Fused Conv2D + ReLU forward/backward functions
+void conv2d_relu_forward_gpu(const float* input, const float* filter, const float* bias, float* output,
+                            int batch_size, int out_channels, int in_channels,
+                            int height, int width, int kernel_size, int stride, int padding,
+                            cudaStream_t stream);
+
+void conv2d_relu_backward_gpu(const float* grad_output, const float* output, 
+                             const float* input, const float* filter,
+                             float* grad_input, float* grad_filter, float* grad_bias,
+                             int batch_size, int out_channels, int in_channels,
+                             int height, int width, int kernel_size, int stride, int padding,
+                             cudaStream_t stream);
 
 // Element-wise operations
 void eltwise_add(const float* a, const float* b, float* out, int size);

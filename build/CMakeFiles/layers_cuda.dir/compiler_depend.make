@@ -174,6 +174,12 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
   /usr/local/cuda/include/cuda_fp16.hpp \
   /usr/local/cuda/include/cuda_bf16.h \
   /usr/local/cuda/include/cuda_bf16.hpp \
+  /usr/include/cudnn.h \
+  /usr/include/cudnn_version.h \
+  /usr/include/cudnn_graph.h \
+  /usr/include/cudnn_ops.h \
+  /usr/include/cudnn_adv.h \
+  /usr/include/cudnn_cnn.h \
   /usr/local/cuda/include/curand.h \
   /usr/local/cuda/include/thrust/device_vector.h \
   /usr/local/cuda/include/thrust/detail/config.h \
@@ -1131,13 +1137,15 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 
 /usr/include/c++/11/bits/std_mutex.h:
 
-/usr/local/cuda/include/cuda/std/detail/libcxx/include/string.h:
+/usr/include/c++/11/ratio:
 
-/usr/local/cuda/include/thrust/iterator/detail/is_iterator_category.h:
+/usr/include/c++/11/chrono:
 
-/usr/local/cuda/include/thrust/system/detail/generic/sequence.inl:
+/usr/include/c++/11/mutex:
 
-/usr/local/cuda/include/cuda/std/__utility/piecewise_construct.h:
+/usr/include/c++/11/bits/unordered_map.h:
+
+/usr/include/c++/11/bits/hashtable_policy.h:
 
 /usr/local/cuda/include/cuda/std/__tuple_dir/make_tuple_types.h:
 
@@ -1158,10 +1166,6 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 /usr/include/c++/11/bits/stl_uninitialized.h:
 
 /usr/local/cuda/include/cuda/std/__cuda/api_wrapper.h:
-
-/usr/local/cuda/include/cuda/std/detail/libcxx/include/cstring:
-
-/usr/local/cuda/include/cuda/std/__concepts/arithmetic.h:
 
 /usr/local/cuda/include/cuda/std/__iterator/concepts.h:
 
@@ -1371,8 +1375,6 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 
 /usr/local/cuda/include/thrust/system/detail/sequential/for_each.h:
 
-/usr/include/c++/11/bits/unordered_map.h:
-
 /usr/local/cuda/include/cub/block/block_raking_layout.cuh:
 
 /usr/local/cuda/include/cuda/std/__type_traits/copy_cv.h:
@@ -1539,8 +1541,6 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 
 /usr/include/x86_64-linux-gnu/bits/types/struct_sched_param.h:
 
-/usr/local/cuda/include/cub/util_macro.cuh:
-
 /usr/local/cuda/include/thrust/iterator/detail/tagged_iterator.h:
 
 /usr/include/sched.h:
@@ -1572,6 +1572,14 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 /usr/local/cuda/include/cub/thread/thread_scan.cuh:
 
 /usr/include/c++/11/bits/stringfwd.h:
+
+/usr/local/cuda/include/cuda/std/__fwd/tuple.h:
+
+/usr/include/c++/11/bits/invoke.h:
+
+/usr/local/cuda/include/cuda/std/__functional/identity.h:
+
+/usr/include/c++/11/array:
 
 /usr/local/cuda/include/sm_20_atomic_functions.hpp:
 
@@ -1619,8 +1627,6 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 
 /usr/local/cuda/include/cuda/std/__type_traits/is_copy_assignable.h:
 
-/usr/include/c++/11/bit:
-
 /usr/include/c++/11/ext/type_traits.h:
 
 /usr/local/cuda/include/cuda/std/detail/__config:
@@ -1636,8 +1642,6 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 /usr/include/c++/11/istream:
 
 /usr/include/x86_64-linux-gnu/bits/waitflags.h:
-
-/usr/local/cuda/include/cuda/std/__fwd/tuple.h:
 
 /usr/include/c++/11/cstdlib:
 
@@ -1667,6 +1671,10 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 
 /usr/local/cuda/include/cuda/std/__functional/hash.h:
 
+/usr/local/cuda/include/cuda/std/__concepts/destructible.h:
+
+/usr/include/c++/11/new:
+
 /usr/include/c++/11/bits/ostream_insert.h:
 
 /usr/local/cuda/include/cuda/std/__type_traits/rank.h:
@@ -1678,6 +1686,12 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 /usr/include/x86_64-linux-gnu/bits/types/struct_itimerspec.h:
 
 /usr/local/cuda/include/thrust/sequence.h:
+
+/usr/include/c++/11/bits/range_access.h:
+
+/usr/include/x86_64-linux-gnu/bits/stdint-intn.h:
+
+/usr/local/cuda/include/thrust/system/cuda/detail/fill.h:
 
 /usr/local/cuda/include/crt/device_functions.hpp:
 
@@ -1692,6 +1706,8 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 /usr/local/cuda/include/crt/math_functions.hpp:
 
 /usr/local/cuda/include/device_types.h:
+
+/usr/include/c++/11/bits/memoryfwd.h:
 
 /usr/include/x86_64-linux-gnu/bits/time.h:
 
@@ -1777,8 +1793,6 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 
 /usr/include/x86_64-linux-gnu/bits/stdio_lim.h:
 
-/usr/include/c++/11/bits/invoke.h:
-
 /usr/local/cuda/include/cuda/std/__utility/unreachable.h:
 
 /usr/local/cuda/include/thrust/detail/allocator/temporary_allocator.h:
@@ -1817,7 +1831,9 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 
 /usr/local/cuda/include/cuda/std/__concepts/constructible.h:
 
-/usr/local/cuda/include/cuda/std/__memory/construct_at.h:
+/usr/local/cuda/include/cub/util_macro.cuh:
+
+/usr/include/cudnn_graph.h:
 
 /usr/include/c++/11/bits/basic_string.h:
 
@@ -1871,8 +1887,6 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 
 /usr/local/cuda/include/thrust/iterator/detail/reverse_iterator_base.h:
 
-/usr/include/c++/11/bits/memoryfwd.h:
-
 /usr/local/cuda/include/cuda/std/__concepts/copyable.h:
 
 /usr/include/x86_64-linux-gnu/bits/uintn-identity.h:
@@ -1887,12 +1901,6 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 
 /usr/include/x86_64-linux-gnu/bits/atomic_wide_counter.h:
 
-/usr/include/c++/11/bits/hash_bytes.h:
-
-/usr/include/c++/11/bits/move.h:
-
-/usr/local/cuda/include/cub/grid/grid_queue.cuh:
-
 /usr/lib/gcc/x86_64-linux-gnu/11/include/syslimits.h:
 
 /usr/local/cuda/include/cuda/std/__iterator/readable_traits.h:
@@ -1900,12 +1908,6 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 /usr/include/x86_64-linux-gnu/bits/types.h:
 
 /usr/local/cuda/include/cub/agent/agent_reduce.cuh:
-
-/usr/include/x86_64-linux-gnu/bits/stdint-intn.h:
-
-/usr/include/c++/11/bits/range_access.h:
-
-/usr/local/cuda/include/thrust/system/cuda/detail/fill.h:
 
 /usr/local/cuda/include/cuda/std/__type_traits/is_constant_evaluated.h:
 
@@ -2049,10 +2051,6 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 
 /usr/include/string.h:
 
-/usr/local/cuda/include/cuda/std/__functional/binary_negate.h:
-
-/usr/local/cuda/include/cuda/std/__memory/uses_allocator.h:
-
 /usr/local/cuda/include/cuda/std/__type_traits/nat.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/clock_t.h:
@@ -2125,6 +2123,12 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 
 /usr/local/cuda/include/device_launch_parameters.h:
 
+/usr/include/cudnn_cnn.h:
+
+/usr/local/cuda/include/cuda/std/__type_traits/is_char_like_type.h:
+
+/usr/local/cuda/include/thrust/system/cuda/detail/swap_ranges.h:
+
 /usr/local/cuda/include/crt/sm_100_rt.hpp:
 
 /usr/include/c++/11/ext/aligned_buffer.h:
@@ -2171,12 +2175,6 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 
 /usr/include/c++/11/cstddef:
 
-/usr/local/cuda/include/cuda/std/__type_traits/has_unique_object_representation.h:
-
-/usr/local/cuda/include/cuda/std/__tuple_dir/structured_bindings.h:
-
-/usr/local/cuda/include/sm_30_intrinsics.hpp:
-
 /usr/local/cuda/include/thrust/system/detail/generic/gather.inl:
 
 /usr/local/cuda/include/cuda/std/__type_traits/is_nothrow_default_constructible.h:
@@ -2204,12 +2202,6 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 /usr/local/cuda/include/crt/sm_100_rt.h:
 
 /usr/local/cuda/include/crt/sm_80_rt.h:
-
-/usr/include/c++/11/new:
-
-/usr/local/cuda/include/cuda/std/__concepts/destructible.h:
-
-/usr/local/cuda/include/cuda/std/__functional/identity.h:
 
 /usr/include/x86_64-linux-gnu/bits/byteswap.h:
 
@@ -2268,6 +2260,34 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 /usr/local/cuda/include/thrust/detail/allocator/destroy_range.inl:
 
 /usr/local/cuda/include/nv/target:
+
+/usr/include/cudnn_version.h:
+
+/usr/include/c++/11/bit:
+
+/usr/include/cudnn_ops.h:
+
+/usr/local/cuda/include/thrust/detail/swap.inl:
+
+/usr/include/c++/11/bits/hash_bytes.h:
+
+/usr/include/c++/11/bits/move.h:
+
+/usr/local/cuda/include/cub/grid/grid_queue.cuh:
+
+/usr/include/cudnn_adv.h:
+
+/usr/local/cuda/include/cuda/std/__type_traits/is_copy_constructible.h:
+
+/usr/include/x86_64-linux-gnu/bits/endian.h:
+
+/usr/local/cuda/include/thrust/detail/allocator/allocator_traits.h:
+
+/usr/local/cuda/include/thrust/system/cuda/detail/par.h:
+
+/usr/local/cuda/include/cuda/std/__tuple_dir/vector_types.h:
+
+/usr/local/cuda/include/thrust/detail/internal_functional.h:
 
 /usr/local/cuda/include/cuda/__cccl_config:
 
@@ -2381,18 +2401,6 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 
 /usr/local/cuda/include/cuda/std/__cccl/is_non_narrowing_convertible.h:
 
-/usr/local/cuda/include/cuda/std/__type_traits/is_copy_constructible.h:
-
-/usr/include/x86_64-linux-gnu/bits/endian.h:
-
-/usr/local/cuda/include/thrust/detail/allocator/allocator_traits.h:
-
-/usr/local/cuda/include/thrust/system/cuda/detail/par.h:
-
-/usr/local/cuda/include/cuda/std/__tuple_dir/vector_types.h:
-
-/usr/local/cuda/include/thrust/detail/internal_functional.h:
-
 /usr/include/c++/11/memory:
 
 /usr/local/cuda/include/cuda/std/__type_traits/alignment_of.h:
@@ -2465,11 +2473,29 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 
 /usr/local/cuda/include/cuda/std/__type_traits/is_compound.h:
 
-/usr/local/cuda/include/cuda/std/__type_traits/is_char_like_type.h:
+/usr/local/cuda/include/cuda/std/__type_traits/has_unique_object_representation.h:
 
-/usr/local/cuda/include/thrust/system/cuda/detail/swap_ranges.h:
+/usr/local/cuda/include/sm_30_intrinsics.hpp:
 
-/usr/include/c++/11/array:
+/usr/local/cuda/include/cuda/std/__tuple_dir/structured_bindings.h:
+
+/usr/local/cuda/include/cuda/std/__functional/binary_negate.h:
+
+/usr/local/cuda/include/cuda/std/__memory/uses_allocator.h:
+
+/usr/local/cuda/include/cuda/std/__utility/piecewise_construct.h:
+
+/usr/local/cuda/include/cuda/std/__concepts/arithmetic.h:
+
+/usr/local/cuda/include/cuda/std/detail/libcxx/include/cstring:
+
+/usr/local/cuda/include/cuda/std/detail/libcxx/include/string.h:
+
+/usr/local/cuda/include/thrust/iterator/detail/is_iterator_category.h:
+
+/usr/local/cuda/include/thrust/system/detail/generic/sequence.inl:
+
+/usr/local/cuda/include/cuda/std/__memory/construct_at.h:
 
 /usr/local/cuda/include/cuda/std/__memory/voidify.h:
 
@@ -2715,6 +2741,10 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 
 /usr/local/cuda/include/thrust/detail/tuple_meta_transform.h:
 
+/usr/include/c++/11/bits/enable_special_members.h:
+
+/usr/local/cuda/include/thrust/tuple.h:
+
 /usr/local/cuda/include/thrust/system/detail/adl/mismatch.h:
 
 /usr/include/c++/11/bits/stl_tree.h:
@@ -2851,8 +2881,6 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 
 /usr/local/cuda/include/thrust/system/cuda/detail/iter_swap.h:
 
-/usr/local/cuda/include/thrust/detail/swap.inl:
-
 /usr/local/cuda/include/thrust/system/detail/adl/swap_ranges.h:
 
 /usr/local/cuda/include/thrust/system/cpp/detail/swap_ranges.h:
@@ -2953,8 +2981,6 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 
 /usr/local/cuda/include/cub/thread/thread_load.cuh:
 
-/usr/include/c++/11/chrono:
-
 /usr/local/cuda/include/thrust/system/cuda/detail/core/triple_chevron_launch.h:
 
 /usr/local/cuda/include/thrust/detail/swap_ranges.inl:
@@ -2984,6 +3010,8 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 /usr/local/cuda/include/thrust/system/cuda/detail/cdp_dispatch.h:
 
 /usr/local/cuda/include/cub/warp/warp_scan.cuh:
+
+/usr/include/cudnn.h:
 
 /usr/local/cuda/include/cuda/std/__iterator/move_iterator.h:
 
@@ -3136,8 +3164,6 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 /usr/local/cuda/include/thrust/detail/minmax.h:
 
 /usr/local/cuda/include/thrust/equal.h:
-
-/usr/include/c++/11/ratio:
 
 /usr/local/cuda/include/thrust/detail/equal.inl:
 
@@ -3344,11 +3370,3 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o: ../csrc/layers.cu \
 /usr/local/cuda/include/cuda/std/__iterator/advance.h:
 
 /usr/include/c++/11/bits/hashtable.h:
-
-/usr/include/c++/11/bits/hashtable_policy.h:
-
-/usr/local/cuda/include/thrust/tuple.h:
-
-/usr/include/c++/11/bits/enable_special_members.h:
-
-/usr/include/c++/11/mutex:

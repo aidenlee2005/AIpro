@@ -25,7 +25,7 @@
 | :--- | :--- | :--- |
 | **`memory_pool.h`** | **显存管理**。实现了一个单例模式的缓存分配器 (Caching Allocator)。 | `MemoryPool` (类)<br>- `allocate`: 申请显存（优先复用）<br>- `deallocate`: 归还显存到池<br>- `clear`: 清空池 |
 | **`tensor.h`** | **Tensor 定义**。定义了 C++ 端的 Tensor 类，管理 Shape、Strides 和数据指针。集成显存池。 | `Tensor<T>` (类)<br>- 构造/析构: 调用 MemoryPool<br>- `data()`: 获取裸指针 |
-| **`layers.cu`** | **CUDA 核函数实现**。包含所有算子的 GPU 实现。 | `gemm_gpu`: 矩阵乘法 (cuBLAS)<br>`forward/backward_conv2d`: 卷积 (Im2Col+GEMM)<br>`eltwise_*_kernel`: 逐元素操作<br>`*_broadcast_kernel`: 广播操作<br>`sgd/adam_update_gpu`: 优化器更新<br>`batch_norm_*`: 批归一化<br>`dropout_*`: Dropout |
+| **`layers.cu`** | **CUDA 核函数实现**。包含所有算子的 GPU 实现。集成 **cuDNN** 库以加速卷积操作。 | `gemm_gpu`: 矩阵乘法 (cuBLAS)<br>`conv2d_relu_*`: 融合卷积 (cuDNN)<br>`eltwise_*_kernel`: 逐元素操作<br>`*_broadcast_kernel`: 广播操作<br>`sgd/adam_update_gpu`: 优化器更新<br>`batch_norm_*`: 批归一化<br>`dropout_*`: Dropout |
 | **`layers.h`** | **C++ 接口声明**。声明 `layers.cu` 中暴露给 C++ 的函数。 | `TensorStrides` (结构体): 用于广播索引<br>`fill_random_uniform`: 随机数生成 |
 | **`pybind_tensor.cpp`** | **Python 绑定**。使用 Pybind11 封装 C++ Tensor 和函数，处理广播步长计算。 | `py_tensor` (模块)<br>`compute_broadcast_strides`: 计算广播后的虚拟步长<br>`make_tensor_like`: 创建同型 Tensor<br>`dropout_*_wrapper`: Dropout 封装 |
 

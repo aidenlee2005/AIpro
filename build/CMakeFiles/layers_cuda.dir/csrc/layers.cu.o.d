@@ -171,6 +171,12 @@ CMakeFiles/layers_cuda.dir/csrc/layers.cu.o : /root/autodl-tmp/csrc/layers.cu \
     /usr/local/cuda/include/cuda_fp16.hpp \
     /usr/local/cuda/include/cuda_bf16.h \
     /usr/local/cuda/include/cuda_bf16.hpp \
+    /usr/include/cudnn.h \
+    /usr/include/cudnn_version.h \
+    /usr/include/cudnn_graph.h \
+    /usr/include/cudnn_ops.h \
+    /usr/include/cudnn_adv.h \
+    /usr/include/cudnn_cnn.h \
     /usr/local/cuda/include/curand.h \
     /usr/local/cuda/include/thrust/device_vector.h \
     /usr/local/cuda/include/thrust/detail/config.h \
