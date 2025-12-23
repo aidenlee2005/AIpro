@@ -197,7 +197,7 @@ def run_pytorch_benchmark(model_name, batch_size=64, device='cuda'):
     # Setup Model
     if model_name == 'SimpleCNN' or model_name == 'SimpleCNN_Fused':
         model = SimpleCNN()
-    elif model_name == 'VGG' or model_name == 'FusedVGG':
+    elif model_name == 'VGG' or model_name == 'FusedVGG' or model_name == 'VGG_Opt':
         model = VGG_Custom()
     elif model_name == 'ResNet':
         model = ResNet_Custom()

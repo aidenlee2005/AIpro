@@ -647,6 +647,24 @@ def max_pool2d(input):
     return MaxPool2D()(input)
 
 
+class GlobalAvgPool(TensorOp):
+    def compute(self, input: MyTensor):
+        return py.global_avg_pool_forward(input)
+
+    def gradient(self, out_grad: Tensor, node: Tensor):
+        input = node.inputs[0]
+        input_t = input.realize_cached_data()
+        out_grad_t = out_grad.realize_cached_data()
+        
+        grad_input_t = py.global_avg_pool_backward(out_grad_t, input_t)
+        
+        return Tensor.make_const(grad_input_t)
+
+
+def global_avg_pool(input):
+    return GlobalAvgPool()(input)
+
+
 class FC(TensorOp):
     def compute(self, input: MyTensor, weight: MyTensor, bias: MyTensor):
         return py.fc_forward(input, weight, bias)

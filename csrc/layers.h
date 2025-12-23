@@ -83,6 +83,13 @@ void backward_maxpool(const float* grad_output, const float* mask, float* grad_i
     int batch_size, int in_channels, int in_h, int in_w,
     int out_h, int out_w, cudaStream_t stream);
 
+// Global Average Pooling
+void global_avg_pool_forward(const float* input, float* output,
+    int batch_size, int channels, int height, int width, cudaStream_t stream);
+
+void global_avg_pool_backward(const float* grad_output, float* grad_input,
+    int batch_size, int channels, int height, int width, cudaStream_t stream);
+
 //Task4: Softmax Layer
 
 void forward_softmax(const float* input, float* output,

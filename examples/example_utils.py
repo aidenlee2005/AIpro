@@ -217,9 +217,95 @@ def save_model(model, model_name, accuracy, save_dir="models"):
         
     print(f"Model saved to {filepath}")
 
+def train_model(model, train_dataset, test_dataset, config, model_name, script_name, augmentation, device="gpu"):
+    """
+    Generic training loop to reduce boilerplate in example scripts.
+    """
+    import optimizer as nn
+    
+    # Optimizer setup
+    if config['optimizer'] == 'SGD':
+        optimizer = nn.SGD(model.parameters(), lr=config['lr'], momentum=config['momentum'], weight_decay=config.get('weight_decay', 0.0))
+    elif config['optimizer'] == 'Adam':
+        optimizer = nn.Adam(model.parameters(), lr=config['lr'], weight_decay=config.get('weight_decay', 0.0))
+    else:
+        raise ValueError(f"Unsupported optimizer: {config['optimizer']}")
+        
+    criterion = nn.CrossEntropyLoss()
+
+    # Training Loop
+    total_start_time = time.time()
+    total_batches = (len(train_dataset) + config['batch_size'] - 1) // config['batch_size']
+
+    for epoch in range(config['epochs']):
+        model.train()
+        epoch_start = time.time()
+        correct = 0
+        total = 0
+        loss_sum = 0
+        step_start = time.time()
+
+        for batch_idx, (batch_x, batch_y) in progress_wrapper(
+            get_batch(train_dataset, config['batch_size'], device=device),
+            total_batches,
+            prefix=f"Epoch {epoch+1}/{config['epochs']}",
+            start_time=step_start,
+        ):
+            optimizer.zero_grad()
+            output = model(batch_x)
+            loss = criterion(output, batch_y)
+            loss.backward()
+            optimizer.step()
+            
+            # Metrics
+            pred = output.numpy().argmax(axis=1)
+            correct += (pred == batch_y.numpy()).sum()
+            total += batch_y.shape[0]
+            loss_sum += loss.numpy()
+
+        epoch_time = time.time() - epoch_start
+        tr_acc = correct / total
+        print(f"Epoch {epoch+1}/{config['epochs']} - Time: {epoch_time:.2f}s - Loss: {loss_sum/total:.4f} - Acc: {tr_acc:.4f}")
+
+    total_time = time.time() - total_start_time
+    
+    # Evaluation
+    model.eval()
+    correct = 0
+    total = 0
+    for batch_x, batch_y in get_batch(test_dataset, config['batch_size'], device=device):
+        output = model(batch_x)
+        pred = output.numpy().argmax(axis=1)
+        correct += (pred == batch_y.numpy()).sum()
+        total += batch_y.shape[0]
+    
+    te_acc = correct / total
+    print(f"Test Accuracy: {te_acc:.4f}")
+    
+    # PyTorch Benchmark
+    from pytorch_utils import run_pytorch_benchmark
+    try:
+        pytorch_time = run_pytorch_benchmark(model_name, batch_size=config['batch_size'])
+    except Exception as e:
+        print(f"PyTorch benchmark failed: {e}")
+        pytorch_time = None
+        
+    # Log
+    logger = ExperimentLogger()
+    logger.log(script_name, model_name, augmentation, config, tr_acc, te_acc, total_time, pytorch_time)
+    
+    # Save Model
+    save_model(model, model_name, te_acc)
+
 class ExperimentLogger:
     def __init__(self, filename="new_training_log.csv"):
-        self.filename = os.path.abspath(filename)
+        # Ensure log file is always in the project root
+        if not os.path.isabs(filename):
+            project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+            self.filename = os.path.join(project_root, filename)
+        else:
+            self.filename = filename
+            
         self.headers = [
             "Timestamp", "Script", "Model", "Augmentation", "Optimizer", "LR", "BatchSize", 
             "Momentum", "WeightDecay", "Epochs", 

@@ -379,28 +379,79 @@ void col2im(float* grad_col, float* grad_input,
 void forward_conv2d(float* input, float* output, float* filter,
                 int batch_size, int out_channels, int in_channels, int height, int width,
                 cudaStream_t stream){
-    //Assume stride=1, padding=1, kernel_size=3
-    int col_h = height * width;
-    int col_w = 3 * 3 * in_channels;
-    
-    size_t input_col_size = (size_t)batch_size * col_h * col_w * sizeof(float);
-    float* d_input_col = (float*)MemoryPool::instance().allocate(input_col_size);
-    im2col(input, d_input_col, batch_size, in_channels, height, width, stream);
+    // Assume stride=1, padding=1, kernel_size=3
+    int kernel_size = 3;
+    int stride = 1;
+    int padding = 1;
 
-    size_t output_col_size = (size_t)batch_size * col_h * out_channels * sizeof(float);
-    float* d_output_col = (float*)MemoryPool::instance().allocate(output_col_size);
+    static cudnnHandle_t cudnn = nullptr;
+    static cudnnTensorDescriptor_t input_desc = nullptr;
+    static cudnnFilterDescriptor_t filter_desc = nullptr;
+    static cudnnConvolutionDescriptor_t conv_desc = nullptr;
+    static cudnnTensorDescriptor_t output_desc = nullptr;
 
-    //outcol(batch_size, col_h, out_channels) = input_col(batchsize, col_h, col_w) * filter(out_channels, in_channels, 3, 3) ^T
-    //outcol((batch_size*col_h), out_channels) = input_col((batchsize*col_h), col_w) * filter(out_channels, (in_channels*3*3)) ^T
-    gemm_gpu(TransposeType::NoTranspose, TransposeType::Transpose,
-        d_input_col, filter, d_output_col,
-        batch_size * col_h, out_channels, col_w,
-        1.0f, 0.0f, stream);
-    //move outcol(batch_size, height, weight out_channels) to output(batch_size, out_channels, height, width)
-    nhwc_to_nchw(d_output_col, output, batch_size, out_channels, height, width, stream);
+    if (cudnn == nullptr) {
+        cudnnCreate(&cudnn);
+        cudnnCreateTensorDescriptor(&input_desc);
+        cudnnCreateFilterDescriptor(&filter_desc);
+        cudnnCreateConvolutionDescriptor(&conv_desc);
+        cudnnCreateTensorDescriptor(&output_desc);
+    }
+    cudnnSetStream(cudnn, stream);
+
+    cudnnSetTensor4dDescriptor(input_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
+                               batch_size, in_channels, height, width);
+
+    cudnnSetFilter4dDescriptor(filter_desc, CUDNN_DATA_FLOAT, CUDNN_TENSOR_NCHW,
+                               out_channels, in_channels, kernel_size, kernel_size);
+
+    cudnnSetConvolution2dDescriptor(conv_desc, padding, padding, stride, stride, 1, 1,
+                                    CUDNN_CROSS_CORRELATION, CUDNN_DATA_FLOAT);
+    cudnnSetConvolutionMathType(conv_desc, CUDNN_TENSOR_OP_MATH);
+
+    int out_n, out_c, out_h, out_w;
+    cudnnGetConvolution2dForwardOutputDim(conv_desc, input_desc, filter_desc,
+                                          &out_n, &out_c, &out_h, &out_w);
+
+    cudnnSetTensor4dDescriptor(output_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
+                               out_n, out_c, out_h, out_w);
+
+    // Algo selection with caching
+    using AlgoKey = std::tuple<int, int, int, int, int, int, int>;
+    static std::map<AlgoKey, cudnnConvolutionFwdAlgo_t> algo_cache;
+    AlgoKey key = std::make_tuple(batch_size, out_channels, in_channels, height, width, kernel_size, stride);
     
-    MemoryPool::instance().deallocate(d_output_col, output_col_size);
-    MemoryPool::instance().deallocate(d_input_col, input_col_size);
+    cudnnConvolutionFwdAlgo_t algo;
+    auto it = algo_cache.find(key);
+    if (it != algo_cache.end()) {
+        algo = it->second;
+    } else {
+        int requestedAlgoCount = 1;
+        int returnedAlgoCount;
+        cudnnConvolutionFwdAlgoPerf_t perfResults;
+        cudnnGetConvolutionForwardAlgorithm_v7(cudnn, input_desc, filter_desc, conv_desc, output_desc,
+                                               requestedAlgoCount, &returnedAlgoCount, &perfResults);
+        algo = perfResults.algo;
+        algo_cache[key] = algo;
+    }
+
+    size_t workspace_size = 0;
+    cudnnGetConvolutionForwardWorkspaceSize(cudnn, input_desc, filter_desc, conv_desc, output_desc, algo, &workspace_size);
+
+    void* workspace = nullptr;
+    if (workspace_size > 0) {
+        workspace = MemoryPool::instance().allocate(workspace_size);
+    }
+
+    float alpha = 1.0f, beta = 0.0f;
+    cudnnConvolutionForward(cudnn, &alpha, input_desc, input,
+                            filter_desc, filter,
+                            conv_desc, algo, workspace, workspace_size,
+                            &beta, output_desc, output);
+
+    if (workspace_size > 0) {
+        MemoryPool::instance().deallocate(workspace, workspace_size);
+    }
 }
 
 void backward_conv2d(float* input, float* filter,
@@ -408,44 +459,118 @@ void backward_conv2d(float* input, float* filter,
         float* grad_input, float* grad_output, float* grad_filter,
         cudaStream_t stream){
     // Assume stride=1, padding=1, kernel_size=3
-    int col_h = height * width;
-    int col_w = 3 * 3 * in_channels;
+    int kernel_size = 3;
+    int stride = 1;
+    int padding = 1;
 
-    // 1) im2col(input) -> d_input_col
-    size_t input_col_size = (size_t)batch_size * col_h * col_w * sizeof(float);
-    float* d_input_col = (float*)MemoryPool::instance().allocate(input_col_size);
-    im2col(input, d_input_col, batch_size, in_channels, height, width, stream);
+    static cudnnHandle_t cudnn = nullptr;
+    static cudnnTensorDescriptor_t input_desc = nullptr;
+    static cudnnFilterDescriptor_t filter_desc = nullptr;
+    static cudnnConvolutionDescriptor_t conv_desc = nullptr;
+    static cudnnTensorDescriptor_t output_desc = nullptr;
+    static cudnnTensorDescriptor_t grad_output_desc = nullptr;
+    static cudnnTensorDescriptor_t grad_input_desc = nullptr;
 
-    // 2) convert grad_output (NCHW) -> outcol (batch*col_h, out_channels)
-    size_t grad_outcol_size = (size_t)batch_size * col_h * out_channels * sizeof(float);
-    float* d_grad_outcol = (float*)MemoryPool::instance().allocate(grad_outcol_size);
-    nchw_to_nhwc(grad_output, d_grad_outcol, batch_size, out_channels, height, width, stream);
+    if (cudnn == nullptr) {
+        cudnnCreate(&cudnn);
+        cudnnCreateTensorDescriptor(&input_desc);
+        cudnnCreateFilterDescriptor(&filter_desc);
+        cudnnCreateConvolutionDescriptor(&conv_desc);
+        cudnnCreateTensorDescriptor(&output_desc);
+        cudnnCreateTensorDescriptor(&grad_output_desc);
+        cudnnCreateTensorDescriptor(&grad_input_desc);
+    }
+    cudnnSetStream(cudnn, stream);
 
-    // 3) dW = d_grad_outcol^T * input_col
-    // shapes: d_grad_outcol (batch*col_h, out_channels), d_input_col (batch*col_h, col_w)
-    gemm_gpu(TransposeType::Transpose, TransposeType::NoTranspose,
-        d_grad_outcol, d_input_col, grad_filter,
-        out_channels, col_w, batch_size * col_h,
-        1.0f, 0.0f, stream);
+    cudnnSetTensor4dDescriptor(input_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
+                               batch_size, in_channels, height, width);
+    cudnnSetTensor4dDescriptor(grad_input_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
+                               batch_size, in_channels, height, width);
 
-    // 4) dInput: grad_input_col = d_grad_outcol * filter
-    size_t grad_input_col_size = (size_t)batch_size * col_h * col_w * sizeof(float);
-    float* d_grad_input_col = (float*)MemoryPool::instance().allocate(grad_input_col_size);
+    cudnnSetFilter4dDescriptor(filter_desc, CUDNN_DATA_FLOAT, CUDNN_TENSOR_NCHW,
+                               out_channels, in_channels, kernel_size, kernel_size);
 
-    gemm_gpu(TransposeType::NoTranspose, TransposeType::NoTranspose,
-        d_grad_outcol, filter, d_grad_input_col,
-        batch_size * col_h, col_w, out_channels,
-        1.0f, 0.0f, stream);
-    // ensure GEMM finished before using d_grad_input_col on the same stream
-    // cudaStreamSynchronize(stream); // Removed: MemoryPool handles reuse, no need to sync if we don't free immediately to OS
+    cudnnSetConvolution2dDescriptor(conv_desc, padding, padding, stride, stride, 1, 1,
+                                    CUDNN_CROSS_CORRELATION, CUDNN_DATA_FLOAT);
+    cudnnSetConvolutionMathType(conv_desc, CUDNN_TENSOR_OP_MATH);
 
-    // 5) col2im: accumulate grad_input_col -> grad_input (NCHW)
-    col2im(d_grad_input_col, grad_input, batch_size, in_channels, height, width, stream);
+    int out_n, out_c, out_h, out_w;
+    cudnnGetConvolution2dForwardOutputDim(conv_desc, input_desc, filter_desc,
+                                          &out_n, &out_c, &out_h, &out_w);
 
-    // 6) free temporaries
-    MemoryPool::instance().deallocate(d_grad_input_col, grad_input_col_size);
-    MemoryPool::instance().deallocate(d_input_col, input_col_size);
-    MemoryPool::instance().deallocate(d_grad_outcol, grad_outcol_size);
+    cudnnSetTensor4dDescriptor(grad_output_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
+                               out_n, out_c, out_h, out_w);
+
+    float alpha = 1.0f, beta = 0.0f;
+
+    // 1. Backward Data (grad_input)
+    using AlgoKey = std::tuple<int, int, int, int, int, int, int>;
+    static std::map<AlgoKey, cudnnConvolutionBwdDataAlgo_t> data_algo_cache;
+    static std::map<AlgoKey, cudnnConvolutionBwdFilterAlgo_t> filter_algo_cache;
+    AlgoKey key = std::make_tuple(batch_size, out_channels, in_channels, height, width, kernel_size, stride);
+
+    cudnnConvolutionBwdDataAlgo_t data_algo;
+    auto it_data = data_algo_cache.find(key);
+    if (it_data != data_algo_cache.end()) {
+        data_algo = it_data->second;
+    } else {
+        int returnedAlgoCount;
+        cudnnConvolutionBwdDataAlgoPerf_t data_perfResults;
+        cudnnGetConvolutionBackwardDataAlgorithm_v7(cudnn, filter_desc, grad_output_desc, conv_desc, grad_input_desc,
+                                                    1, &returnedAlgoCount, &data_perfResults);
+        data_algo = data_perfResults.algo;
+        data_algo_cache[key] = data_algo;
+    }
+
+    size_t data_workspace_size = 0;
+    cudnnGetConvolutionBackwardDataWorkspaceSize(cudnn, filter_desc, grad_output_desc, conv_desc, grad_input_desc, data_algo, &data_workspace_size);
+    
+    void* data_workspace = nullptr;
+    if (data_workspace_size > 0) {
+        data_workspace = MemoryPool::instance().allocate(data_workspace_size);
+    }
+
+    cudnnConvolutionBackwardData(cudnn, &alpha,
+                                 filter_desc, filter,
+                                 grad_output_desc, grad_output,
+                                 conv_desc, data_algo, data_workspace, data_workspace_size,
+                                 &beta, grad_input_desc, grad_input);
+
+    if (data_workspace_size > 0) {
+        MemoryPool::instance().deallocate(data_workspace, data_workspace_size);
+    }
+
+    // 2. Backward Filter (grad_filter)
+    cudnnConvolutionBwdFilterAlgo_t filter_algo;
+    auto it_filter = filter_algo_cache.find(key);
+    if (it_filter != filter_algo_cache.end()) {
+        filter_algo = it_filter->second;
+    } else {
+        int returnedAlgoCount;
+        cudnnConvolutionBwdFilterAlgoPerf_t filter_perfResults;
+        cudnnGetConvolutionBackwardFilterAlgorithm_v7(cudnn, input_desc, grad_output_desc, conv_desc, filter_desc,
+                                                      1, &returnedAlgoCount, &filter_perfResults);
+        filter_algo = filter_perfResults.algo;
+        filter_algo_cache[key] = filter_algo;
+    }
+
+    size_t filter_workspace_size = 0;
+    cudnnGetConvolutionBackwardFilterWorkspaceSize(cudnn, input_desc, grad_output_desc, conv_desc, filter_desc, filter_algo, &filter_workspace_size);
+
+    void* filter_workspace = nullptr;
+    if (filter_workspace_size > 0) {
+        filter_workspace = MemoryPool::instance().allocate(filter_workspace_size);
+    }
+
+    cudnnConvolutionBackwardFilter(cudnn, &alpha,
+                                   input_desc, input,
+                                   grad_output_desc, grad_output,
+                                   conv_desc, filter_algo, filter_workspace, filter_workspace_size,
+                                   &beta, filter_desc, grad_filter);
+
+    if (filter_workspace_size > 0) {
+        MemoryPool::instance().deallocate(filter_workspace, filter_workspace_size);
+    }
 }
 
 // ===========Maxpool=============
@@ -1444,32 +1569,44 @@ void batch_norm_forward_training(
     int batch_size, int channels, int height, int width,
     float momentum, float eps) {
     
-    size_t size = channels * sizeof(float);
-    float *d_mean = (float*)MemoryPool::instance().allocate(size);
-    float *d_var = (float*)MemoryPool::instance().allocate(size);
-    
-    // Two-pass algorithm for numerical stability
-    batch_norm_collect_mean_kernel<<<channels, 256>>>(
-        input, d_mean, batch_size, channels, height, width);
-        
-    batch_norm_collect_variance_kernel<<<channels, 256>>>(
-        input, d_mean, d_var, batch_size, channels, height, width);
-        
-    batch_norm_forward_kernel<<<(batch_size * channels * height * width + 255) / 256, 256>>>(
-        input, output, d_mean, d_var, weight, bias, batch_size, channels, height, width, eps);
-        
-    batch_norm_save_stats_kernel<<<(channels + 255) / 256, 256>>>(
-        d_mean, d_var, save_mean, save_inv_std, channels, eps);
-        
-    int num_elements = batch_size * height * width;
-    update_running_stats_kernel<<<(channels + 255) / 256, 256>>>(
-        running_mean, running_var, d_mean, d_var, momentum, channels, num_elements);
-        
-    // Debug: Add sync to rule out race conditions
-    cudaDeviceSynchronize();
+    static cudnnHandle_t cudnn = nullptr;
+    static cudnnTensorDescriptor_t x_desc = nullptr;
+    static cudnnTensorDescriptor_t y_desc = nullptr;
+    static cudnnTensorDescriptor_t bn_desc = nullptr;
 
-    MemoryPool::instance().deallocate(d_mean, size);
-    MemoryPool::instance().deallocate(d_var, size);
+    if (cudnn == nullptr) {
+        cudnnCreate(&cudnn);
+        cudnnCreateTensorDescriptor(&x_desc);
+        cudnnCreateTensorDescriptor(&y_desc);
+        cudnnCreateTensorDescriptor(&bn_desc);
+    }
+    // Use default stream (0) or pass stream if available. 
+    // The function signature doesn't have stream, so we use 0.
+    // Ideally we should update signature to take stream.
+    cudnnSetStream(cudnn, 0);
+
+    cudnnSetTensor4dDescriptor(x_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
+                               batch_size, channels, height, width);
+    cudnnSetTensor4dDescriptor(y_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
+                               batch_size, channels, height, width);
+    
+    // bn_desc should be 1, C, 1, 1
+    cudnnSetTensor4dDescriptor(bn_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
+                               1, channels, 1, 1);
+
+    float alpha = 1.0f;
+    float beta = 0.0f;
+
+    cudnnBatchNormalizationForwardTraining(
+        cudnn, CUDNN_BATCHNORM_SPATIAL,
+        &alpha, &beta,
+        x_desc, input,
+        y_desc, output,
+        bn_desc, weight, bias,
+        momentum, // exponentialAverageFactor
+        running_mean, running_var,
+        eps,
+        save_mean, save_inv_std);
 }
 
 void batch_norm_forward_inference(
@@ -1577,14 +1714,54 @@ void batch_norm_backward(
     float* save_mean, float* save_inv_std,
     int batch_size, int channels, int height, int width) {
     
-    
-    batch_norm_backward_reduce_kernel<<<channels, 256>>>(
-        grad_output, input, save_mean, save_inv_std, grad_weight, grad_bias,
-        batch_size, channels, height, width);
-        
-    batch_norm_backward_input_kernel<<<(batch_size * channels * height * width + 255) / 256, 256>>>(
-        grad_output, input, grad_input, save_mean, save_inv_std, weight,
-        grad_bias, grad_weight, batch_size, channels, height, width);
+    static cudnnHandle_t cudnn = nullptr;
+    static cudnnTensorDescriptor_t x_desc = nullptr;
+    static cudnnTensorDescriptor_t dy_desc = nullptr;
+    static cudnnTensorDescriptor_t dx_desc = nullptr;
+    static cudnnTensorDescriptor_t bn_desc = nullptr;
+
+    if (cudnn == nullptr) {
+        cudnnCreate(&cudnn);
+        cudnnCreateTensorDescriptor(&x_desc);
+        cudnnCreateTensorDescriptor(&dy_desc);
+        cudnnCreateTensorDescriptor(&dx_desc);
+        cudnnCreateTensorDescriptor(&bn_desc);
+    }
+    cudnnSetStream(cudnn, 0);
+
+    cudnnSetTensor4dDescriptor(x_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
+                               batch_size, channels, height, width);
+    cudnnSetTensor4dDescriptor(dy_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
+                               batch_size, channels, height, width);
+    cudnnSetTensor4dDescriptor(dx_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
+                               batch_size, channels, height, width);
+    cudnnSetTensor4dDescriptor(bn_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
+                               1, channels, 1, 1);
+
+    float alpha = 1.0f;
+    float beta = 0.0f;
+    // For grad_weight and grad_bias, beta=0 means overwrite.
+    // If we want to accumulate, we should set beta=1.
+    // But usually BN backward overwrites grads.
+    // My manual kernel overwrites.
+
+    // Note: cudnnBatchNormalizationBackward requires epsilon.
+    // But it's only used if using CUDNN_BATCHNORM_SPATIAL_PERSISTENT?
+    // Or maybe it uses save_inv_std so epsilon is not needed?
+    // The signature has epsilon.
+    double epsilon = 1e-5; // Should match forward, but here we use saved stats.
+
+    cudnnBatchNormalizationBackward(
+        cudnn, CUDNN_BATCHNORM_SPATIAL,
+        &alpha, &beta,
+        &alpha, &beta, // alphaDataDiff, betaDataDiff
+        x_desc, input,
+        dy_desc, grad_output,
+        dx_desc, grad_input,
+        bn_desc, weight,
+        grad_weight, grad_bias,
+        epsilon,
+        save_mean, save_inv_std);
 }
 
 // ===========Dropout=============
@@ -1713,4 +1890,46 @@ void flip_gpu(const float* input, float* output, const int* flip_mask,
     int threads = 1024;
     int blocks = (count + threads - 1) / threads;
     flip_kernel<<<blocks, threads>>>(input, output, flip_mask, batch, channels, height, width, count);
+}
+
+// ===========Global Average Pooling=============
+
+__global__ void global_avg_pool_forward_kernel(const float* input, float* output, int N, int C, int H, int W) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < N * C) {
+        int n = idx / C;
+        int c = idx % C;
+        float sum = 0.0f;
+        int offset = n * C * H * W + c * H * W;
+        for (int i = 0; i < H * W; ++i) {
+            sum += input[offset + i];
+        }
+        output[idx] = sum / (H * W);
+    }
+}
+
+void global_avg_pool_forward(const float* input, float* output,
+    int batch_size, int channels, int height, int width, cudaStream_t stream) {
+    int size = batch_size * channels;
+    int threads = 256;
+    int blocks = (size + threads - 1) / threads;
+    global_avg_pool_forward_kernel<<<blocks, threads, 0, stream>>>(input, output, batch_size, channels, height, width);
+}
+
+__global__ void global_avg_pool_backward_kernel(const float* grad_output, float* grad_input, int N, int C, int H, int W) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int size = N * C * H * W;
+    if (idx < size) {
+        int n = idx / (C * H * W);
+        int c = (idx / (H * W)) % C;
+        grad_input[idx] = grad_output[n * C + c] / (H * W);
+    }
+}
+
+void global_avg_pool_backward(const float* grad_output, float* grad_input,
+    int batch_size, int channels, int height, int width, cudaStream_t stream) {
+    int size = batch_size * channels * height * width;
+    int threads = 256;
+    int blocks = (size + threads - 1) / threads;
+    global_avg_pool_backward_kernel<<<blocks, threads, 0, stream>>>(grad_output, grad_input, batch_size, channels, height, width);
 }

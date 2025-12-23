@@ -810,6 +810,28 @@ PYBIND11_MODULE(py_tensor, m) {
     m.def("max_pool2d_forward", &max_pool2d_forward, py::arg("input"));
     m.def("max_pool2d_forward_mask", &max_pool2d_forward_mask, py::arg("input"));
     m.def("max_pool2d_backward", &max_pool2d_backward, py::arg("output_grad"), py::arg("mask"), py::arg("input"));
+    
+    m.def("global_avg_pool_forward", [](const TensorPtr& input){
+        int batch_size = input->get_shape()[0];
+        int channels = input->get_shape()[1];
+        int height = input->get_shape()[2];
+        int width = input->get_shape()[3];
+        std::vector<int> out_shape = {batch_size, channels};
+        TensorPtr output = make_tensor_like(input, out_shape);
+        global_avg_pool_forward(input->data(), output->data(), batch_size, channels, height, width, 0);
+        return output;
+    }, py::arg("input"));
+
+    m.def("global_avg_pool_backward", [](const TensorPtr& grad_output, const TensorPtr& input){
+        int batch_size = input->get_shape()[0];
+        int channels = input->get_shape()[1];
+        int height = input->get_shape()[2];
+        int width = input->get_shape()[3];
+        TensorPtr grad_input = make_tensor_like(input, input->get_shape());
+        global_avg_pool_backward(grad_output->data(), grad_input->data(), batch_size, channels, height, width, 0);
+        return grad_input;
+    }, py::arg("grad_output"), py::arg("input"));
+
     m.def("softmax_forward", &softmax_forward, py::arg("input"));
     m.def("cross_entropy_forward", &cross_entropy_forward, py::arg("input"), py::arg("labels"));
     m.def("cross_entropy_backward", &cross_entropy_backward, py::arg("input"), py::arg("labels"));

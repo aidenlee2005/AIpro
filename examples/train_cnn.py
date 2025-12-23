@@ -9,6 +9,9 @@ import optimizer as nn
 from example_utils import (
     load_cifar10,
     CIFAR10Dataset,
+    Compose,
+    random_crop,
+    random_horizontal_flip,
     train_model
 )
 
@@ -23,9 +26,9 @@ def train():
         'optimizer': 'SGD'
     }
     
-    model_name = "SimpleCNN_Fused"
+    model_name = "SimpleCNN"
     script_name = os.path.basename(__file__)
-    augmentation = "None"
+    augmentation = "RandomCrop+Flip"
     
     print(f"Running {script_name} with {model_name}...")
     
@@ -33,15 +36,22 @@ def train():
     data_dir = os.path.join(os.path.dirname(__file__), "../data")
     X_train, Y_train, X_test, Y_test = load_cifar10(data_dir)
     
-    train_dataset = CIFAR10Dataset(X_train, Y_train, transform=None, mode='train')
+    transforms = Compose([
+        lambda x: random_crop(x, padding=4),
+        lambda x: random_horizontal_flip(x, p=0.5)
+    ])
+    
+    train_dataset = CIFAR10Dataset(X_train, Y_train, transform=transforms, mode='train')
     test_dataset = CIFAR10Dataset(X_test, Y_test, transform=None, mode='test')
     
     # Define Model
     device = "gpu"
     model = nn.Sequential(
-        nn.ConvReLU(3, 16, kernel_size=3, stride=1, padding=1, device=device),
+        nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1, device=device),
+        nn.ReLU(),
         nn.MaxPool2d(kernel_size=2),
-        nn.ConvReLU(16, 32, kernel_size=3, stride=1, padding=1, device=device),
+        nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1, device=device),
+        nn.ReLU(),
         nn.MaxPool2d(kernel_size=2),
         nn.Flatten(),
         nn.Linear(32 * 8 * 8, 10, device=device)

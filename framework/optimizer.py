@@ -331,3 +331,8 @@ class Dropout(Module):
     def forward(self, x):
         return ops.dropout(x, self.p, self.training)
 
+
+class GlobalAvgPool(Module):
+    def forward(self, x):
+        return ops.global_avg_pool(x)
+
