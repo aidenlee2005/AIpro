@@ -12,12 +12,13 @@ namespace py = pybind11;
 using TensorF = Tensor<float>;
 using TensorPtr = std::shared_ptr<TensorF>;
  
-// 根据输入推断输出的Tensor
+// 根据输入推断输出的Tensor创建类似形状的张量
 static TensorPtr make_tensor_like(const TensorPtr& src, const std::vector<int>& new_shape){
     Device dev = src->is_gpu() ? Device::GPU : Device::CPU;
     return std::make_shared<TensorF>(new_shape, dev);
 }
 
+// sigmoid 前向传播
 static TensorPtr sigmoid_forward(const TensorPtr& input){
     auto in_shape = input->get_shape();
     TensorPtr output = make_tensor_like(input, in_shape);
@@ -29,6 +30,7 @@ static TensorPtr sigmoid_forward(const TensorPtr& input){
     return output;
 }
 
+// sigmoid 反向传播
 static TensorPtr sigmoid_backward(const TensorPtr& grad_output, const TensorPtr& output){
     auto in_shape = output->get_shape();
     TensorPtr grad_input = make_tensor_like(output, in_shape);
@@ -40,6 +42,7 @@ static TensorPtr sigmoid_backward(const TensorPtr& grad_output, const TensorPtr&
     return grad_input;
 }
 
+// relu 前向传播
 static TensorPtr relu_forward(const TensorPtr& input){
     auto in_shape = input->get_shape();
     TensorPtr output = make_tensor_like(input, in_shape);
@@ -51,6 +54,7 @@ static TensorPtr relu_forward(const TensorPtr& input){
     return output;
 }
 
+// relu 反向传播
 static TensorPtr relu_backward(const TensorPtr& grad_output, const TensorPtr& output){
     auto in_shape = output->get_shape();
     TensorPtr grad_input = make_tensor_like(output, in_shape);
@@ -62,6 +66,7 @@ static TensorPtr relu_backward(const TensorPtr& grad_output, const TensorPtr& ou
     return grad_input;
 }
 
+// 全连接层前向
 static TensorPtr fc_forward(const TensorPtr& input, const TensorPtr& weight, const TensorPtr& bias){
     //output(b, o) = input(b, i) * weight(i, o)   
     auto in_shape = input->get_shape();
@@ -73,6 +78,7 @@ static TensorPtr fc_forward(const TensorPtr& input, const TensorPtr& weight, con
     return output;
 }
 
+// 全连接层反向
 static std::tuple<TensorPtr, TensorPtr, TensorPtr> fc_backward(const TensorPtr& grad_output, const TensorPtr& input, const TensorPtr& weight, const TensorPtr& bias){
     int batch_size = input->get_shape()[0];
     int out_features = weight->get_shape()[1];
@@ -88,6 +94,7 @@ static std::tuple<TensorPtr, TensorPtr, TensorPtr> fc_backward(const TensorPtr& 
     return std::make_tuple(grad_input, grad_weight, grad_bias);
 }
 
+// 卷积前向
 static TensorPtr conv2d_forward(const TensorPtr& input, const TensorPtr& filter){
     // output(batch_size, out_channels, height, width)
     // filter(out_channels, in_channels, 3, 3)
@@ -108,6 +115,7 @@ static TensorPtr conv2d_forward(const TensorPtr& input, const TensorPtr& filter)
     return output;
 }
 
+// 卷积反向
 static std::tuple<TensorPtr, TensorPtr> conv2d_backward(const TensorPtr& grad_output, const TensorPtr& input, const TensorPtr& filter){
     int batch_size = input->get_shape()[0];
     int out_channels = filter->get_shape()[0];
@@ -124,7 +132,7 @@ static std::tuple<TensorPtr, TensorPtr> conv2d_backward(const TensorPtr& grad_ou
     return std::make_tuple(grad_input, grad_filter);
 }
 
-// Fused Conv2D + ReLU forward
+// 卷积relu前向
 static TensorPtr conv2d_relu_forward(const TensorPtr& input, const TensorPtr& filter, 
                                     int kernel_size = 3, int stride = 1, int padding = 1){
     int batch_size = input->get_shape()[0];
@@ -139,11 +147,7 @@ static TensorPtr conv2d_relu_forward(const TensorPtr& input, const TensorPtr& fi
     
     TensorPtr output = make_tensor_like(input, out_shape);
     
-    // Optional bias
     const float* bias_ptr = nullptr;
-    // We can add bias argument to this function, but for now let's keep it simple or add it.
-    // Let's assume no bias for now in this wrapper, or update wrapper signature.
-    // But wait, I need to update the wrapper signature to support bias.
     
     conv2d_relu_forward_gpu(input->data(), filter->data(), nullptr, output->data(),
                            batch_size, out_channels, in_channels, height, width,
@@ -151,7 +155,7 @@ static TensorPtr conv2d_relu_forward(const TensorPtr& input, const TensorPtr& fi
     return output;
 }
 
-// Fused Conv2D + ReLU forward with bias
+// 卷积relu前向带bias
 static TensorPtr conv2d_relu_forward_bias(const TensorPtr& input, const TensorPtr& filter, const TensorPtr& bias,
                                          int kernel_size = 3, int stride = 1, int padding = 1){
     int batch_size = input->get_shape()[0];
@@ -172,7 +176,7 @@ static TensorPtr conv2d_relu_forward_bias(const TensorPtr& input, const TensorPt
     return output;
 }
 
-// Fused Conv2D + ReLU backward
+// 卷积relu反向
 static std::tuple<TensorPtr, TensorPtr> conv2d_relu_backward(const TensorPtr& grad_output, const TensorPtr& output,
                                                             const TensorPtr& input, const TensorPtr& filter,
                                                             int kernel_size = 3, int stride = 1, int padding = 1){
@@ -193,7 +197,7 @@ static std::tuple<TensorPtr, TensorPtr> conv2d_relu_backward(const TensorPtr& gr
     return std::make_tuple(grad_input, grad_filter);
 }
 
-// Fused Conv2D + ReLU backward with bias
+// 卷积relu反向带bias
 static std::tuple<TensorPtr, TensorPtr, TensorPtr> conv2d_relu_backward_bias(const TensorPtr& grad_output, const TensorPtr& output,
                                                             const TensorPtr& input, const TensorPtr& filter, const TensorPtr& bias,
                                                             int kernel_size = 3, int stride = 1, int padding = 1){
@@ -215,6 +219,7 @@ static std::tuple<TensorPtr, TensorPtr, TensorPtr> conv2d_relu_backward_bias(con
     return std::make_tuple(grad_input, grad_filter, grad_bias);
 }
 
+// 最大池化前向
 static TensorPtr max_pool2d_forward(const TensorPtr& input){
     int batch_size = input->get_shape()[0];
     int in_channels = input->get_shape()[1];
@@ -230,6 +235,7 @@ static TensorPtr max_pool2d_forward(const TensorPtr& input){
     return output;
 }
 
+// 最大池化前向mask
 static TensorPtr max_pool2d_forward_mask(const TensorPtr& input){
     int batch_size = input->get_shape()[0];
     int in_channels = input->get_shape()[1];
@@ -245,6 +251,7 @@ static TensorPtr max_pool2d_forward_mask(const TensorPtr& input){
     return mask;    
 }
 
+// 最大池化反向
 static TensorPtr max_pool2d_backward(const TensorPtr& grad_output, const TensorPtr& mask, 
                                 const TensorPtr& input){
     int batch_size = input->get_shape()[0];
@@ -262,9 +269,8 @@ static TensorPtr max_pool2d_backward(const TensorPtr& grad_output, const TensorP
     return grad_input;
 }
 
+// softmax前向
 static TensorPtr softmax_forward(const TensorPtr& input){
-    // void forward_softmax(const float* input, float* output,
-    // int batch_size ,int num_classes, cudaStream_t stream){
     int batch_size = input->get_shape()[0];
     int num_classes = input->get_shape()[1];
     TensorPtr output = make_tensor_like(input, input->get_shape());
@@ -272,12 +278,8 @@ static TensorPtr softmax_forward(const TensorPtr& input){
     return output;
 }
 
+// 交叉熵前向
 static float cross_entropy_forward(const TensorPtr& input, const TensorPtr& labels){
-    // void forward_cross_entropy(const float* input, const int* labels, float* loss,
-    //     int batch_size, int num_classes, cudaStream_t stream){
-
-    //input shape (batch_size, num_classes)
-    //labels shape (batch_size)
     int batch_size = input->get_shape()[0];
     int num_classes = input->get_shape()[1];
     float loss = 0.0f;
@@ -285,9 +287,8 @@ static float cross_entropy_forward(const TensorPtr& input, const TensorPtr& labe
     return loss;
 }
 
+// 交叉熵反向
 static TensorPtr cross_entropy_backward(const TensorPtr& input, const TensorPtr& labels){
-    // void backward_cross_entropy(const float* softmax_output, const float* labels,
-    // int batch_size, int num_classes, float* grad_output, cudaStream_t stream)
     int batch_size = input->get_shape()[0];
     int num_classes = input->get_shape()[1];
     
@@ -298,6 +299,7 @@ static TensorPtr cross_entropy_backward(const TensorPtr& input, const TensorPtr&
     return grad_input;
 }
 
+// sgd优化步
 static void sgd_step(std::vector<TensorPtr>& params, 
                      std::vector<TensorPtr>& grads, 
                      std::vector<TensorPtr>& velocities,
@@ -306,7 +308,6 @@ static void sgd_step(std::vector<TensorPtr>& params,
         throw std::runtime_error("params and grads must have the same size");
     }
     
-    // Create CUDA stream for asynchronous execution
     cudaStream_t stream;
     cudaStreamCreate(&stream);
     
@@ -326,21 +327,19 @@ static void sgd_step(std::vector<TensorPtr>& params,
         sgd_update_gpu(params[i]->data(), grads[i]->data(), v_ptr, lr, momentum, weight_decay, size, stream);
     }
     
-    // Synchronize stream instead of device
     cudaStreamSynchronize(stream);
     cudaStreamDestroy(stream);
 }
 
+// 批量sgd优化步
 static void batch_sgd_step(std::vector<TensorPtr>& params, 
                            std::vector<TensorPtr>& grads, 
                            std::vector<TensorPtr>& velocities,
                            std::vector<int>& param_sizes,
                            float lr, float momentum, float weight_decay) {
-    // Create CUDA stream for asynchronous execution
     cudaStream_t stream;
     cudaStreamCreate(&stream);
     
-    // Calculate total size and offsets
     size_t total_size = 0;
     std::vector<size_t> offsets;
     for (int size : param_sizes) {
@@ -348,7 +347,6 @@ static void batch_sgd_step(std::vector<TensorPtr>& params,
         total_size += size;
     }
     
-    // Allocate contiguous memory for all parameters and gradients
     TensorPtr all_params = std::make_shared<TensorF>(std::vector<int>{(int)total_size}, Device::GPU);
     TensorPtr all_grads = std::make_shared<TensorF>(std::vector<int>{(int)total_size}, Device::GPU);
     TensorPtr all_velocities = nullptr;
@@ -356,7 +354,6 @@ static void batch_sgd_step(std::vector<TensorPtr>& params,
         all_velocities = std::make_shared<TensorF>(std::vector<int>{(int)total_size}, Device::GPU);
     }
     
-    // Copy data to contiguous arrays
     size_t current_offset = 0;
     for (size_t i = 0; i < params.size(); ++i) {
         int size = param_sizes[i];
@@ -371,12 +368,10 @@ static void batch_sgd_step(std::vector<TensorPtr>& params,
         current_offset += size;
     }
     
-    // Launch batched kernel
     batch_sgd_update_gpu(all_params->data(), all_grads->data(), 
                          all_velocities ? all_velocities->data() : nullptr,
                          lr, momentum, weight_decay, total_size, stream);
     
-    // Copy results back
     current_offset = 0;
     for (size_t i = 0; i < params.size(); ++i) {
         int size = param_sizes[i];
@@ -389,11 +384,11 @@ static void batch_sgd_step(std::vector<TensorPtr>& params,
         current_offset += size;
     }
     
-    // Synchronize stream
     cudaStreamSynchronize(stream);
     cudaStreamDestroy(stream);
 }
 
+// adam优化步
 static void adam_step(std::vector<TensorPtr>& params, 
                       std::vector<TensorPtr>& grads, 
                       std::vector<TensorPtr>& ms,
@@ -403,7 +398,6 @@ static void adam_step(std::vector<TensorPtr>& params,
         throw std::runtime_error("params and grads must have the same size");
     }
     
-    // Create CUDA stream for asynchronous execution
     cudaStream_t stream;
     cudaStreamCreate(&stream);
     
@@ -413,12 +407,11 @@ static void adam_step(std::vector<TensorPtr>& params,
                         lr, beta1, beta2, eps, weight_decay, t, size, stream);
     }
     
-    // Synchronize stream instead of device
     cudaStreamSynchronize(stream);
     cudaStreamDestroy(stream);
 }
 
-// Helper for broadcasting
+// 计算广播步长
 static bool compute_broadcast_strides(const std::vector<int>& shape_a, const std::vector<int>& shape_b,
                                       std::vector<int>& out_shape,
                                       TensorStrides& out_strides,
@@ -429,17 +422,16 @@ static bool compute_broadcast_strides(const std::vector<int>& shape_a, const std
     int ndim_b = shape_b.size();
     ndim = std::max(ndim_a, ndim_b);
     
-    if (ndim > MAX_DIMS) return false; // Too many dims
+    if (ndim > MAX_DIMS) return false; 
 
     out_shape.resize(ndim);
     
-    // Compute output shape
     for (int i = 0; i < ndim; ++i) {
         int dim_a = (i < ndim - ndim_a) ? 1 : shape_a[i - (ndim - ndim_a)];
         int dim_b = (i < ndim - ndim_b) ? 1 : shape_b[i - (ndim - ndim_b)];
         
         if (dim_a != dim_b && dim_a != 1 && dim_b != 1) {
-            return false; // Incompatible shapes
+            return false; 
         }
         out_shape[i] = std::max(dim_a, dim_b);
     }
@@ -492,7 +484,7 @@ static bool compute_broadcast_strides(const std::vector<int>& shape_a, const std
     return true;
 }
 
-// Element-wise bindings
+// 逐元素加法
 static TensorPtr eltwise_add_op(const TensorPtr& a, const TensorPtr& b) {
     if (a->get_shape() == b->get_shape()) {
         TensorPtr out = make_tensor_like(a, a->get_shape());
@@ -512,6 +504,7 @@ static TensorPtr eltwise_add_op(const TensorPtr& a, const TensorPtr& b) {
     }
 }
 
+// 逐元素减法
 static TensorPtr eltwise_sub_op(const TensorPtr& a, const TensorPtr& b) {
     if (a->get_shape() == b->get_shape()) {
         TensorPtr out = make_tensor_like(a, a->get_shape());
@@ -531,6 +524,7 @@ static TensorPtr eltwise_sub_op(const TensorPtr& a, const TensorPtr& b) {
     }
 }
 
+// 逐元素乘法
 static TensorPtr eltwise_mul_op(const TensorPtr& a, const TensorPtr& b) {
     if (a->get_shape() == b->get_shape()) {
         TensorPtr out = make_tensor_like(a, a->get_shape());
@@ -550,6 +544,7 @@ static TensorPtr eltwise_mul_op(const TensorPtr& a, const TensorPtr& b) {
     }
 }
 
+// 逐元素除法
 static TensorPtr eltwise_div_op(const TensorPtr& a, const TensorPtr& b) {
     if (a->get_shape() == b->get_shape()) {
         TensorPtr out = make_tensor_like(a, a->get_shape());
@@ -569,6 +564,7 @@ static TensorPtr eltwise_div_op(const TensorPtr& a, const TensorPtr& b) {
     }
 }
 
+// 逐元素幂运算
 static TensorPtr eltwise_pow_op(const TensorPtr& a, const TensorPtr& b) {
     if (a->get_shape() == b->get_shape()) {
         TensorPtr out = make_tensor_like(a, a->get_shape());
@@ -588,33 +584,36 @@ static TensorPtr eltwise_pow_op(const TensorPtr& a, const TensorPtr& b) {
     }
 }
 
-// Scalar bindings
+// 标量加法
 static TensorPtr scalar_add_op(const TensorPtr& a, float val) {
     TensorPtr out = make_tensor_like(a, a->get_shape());
     scalar_add(a->data(), val, out->data(), a->get_size());
     return out;
 }
 
+// 标量乘法
 static TensorPtr scalar_mul_op(const TensorPtr& a, float val) {
     TensorPtr out = make_tensor_like(a, a->get_shape());
     scalar_mul(a->data(), val, out->data(), a->get_size());
     return out;
 }
 
+// 标量除法
 static TensorPtr scalar_div_op(const TensorPtr& a, float val) {
     TensorPtr out = make_tensor_like(a, a->get_shape());
     scalar_div(a->data(), val, out->data(), a->get_size());
     return out;
 }
 
+// 标量幂运算
 static TensorPtr scalar_pow_op(const TensorPtr& a, float val) {
     TensorPtr out = make_tensor_like(a, a->get_shape());
     scalar_pow(a->data(), val, out->data(), a->get_size());
     return out;
 }
 
-// BatchNorm Wrappers
 
+// 批归一化训练前向
 static std::tuple<TensorPtr, TensorPtr, TensorPtr> batch_norm_forward_training_wrapper(
     const TensorPtr& input, const TensorPtr& weight, const TensorPtr& bias,
     const TensorPtr& running_mean, const TensorPtr& running_var,
@@ -641,6 +640,7 @@ static std::tuple<TensorPtr, TensorPtr, TensorPtr> batch_norm_forward_training_w
     return std::make_tuple(output, save_mean, save_inv_std);
 }
 
+// 批归一化推理前向
 static TensorPtr batch_norm_forward_inference_wrapper(
     const TensorPtr& input, const TensorPtr& weight, const TensorPtr& bias,
     const TensorPtr& running_mean, const TensorPtr& running_var,
@@ -664,6 +664,7 @@ static TensorPtr batch_norm_forward_inference_wrapper(
     return output;
 }
 
+// 批归一化反向
 static std::tuple<TensorPtr, TensorPtr, TensorPtr> batch_norm_backward_wrapper(
     const TensorPtr& grad_output, const TensorPtr& input,
     const TensorPtr& weight,
@@ -688,12 +689,12 @@ static std::tuple<TensorPtr, TensorPtr, TensorPtr> batch_norm_backward_wrapper(
     return std::make_tuple(grad_input, grad_weight, grad_bias);
 }
 
+// 清空缓存
 static void empty_cache(){
     MemoryPool::instance().clear();
 }
 
-// Dropout Forward
-// Returns {output, mask}
+// dropout前向
 static std::tuple<TensorPtr, TensorPtr> dropout_forward_wrapper(const TensorPtr& input, float dropout_p, unsigned long long seed) {
     if (input->is_cpu()) {
         throw std::runtime_error("Dropout not implemented for CPU");
@@ -703,7 +704,7 @@ static std::tuple<TensorPtr, TensorPtr> dropout_forward_wrapper(const TensorPtr&
     
     TensorPtr output = make_tensor_like(input, shape);
     TensorPtr mask = make_tensor_like(input, shape);
-    TensorPtr rand = make_tensor_like(input, shape); // Temporary Tensor
+    TensorPtr rand = make_tensor_like(input, shape); 
     
     // 1. Generate random numbers
     fill_random_uniform(rand->data(), size, seed);
@@ -712,12 +713,12 @@ static std::tuple<TensorPtr, TensorPtr> dropout_forward_wrapper(const TensorPtr&
     float keep_prob = 1.0f - dropout_p;
     dropout_forward(input->data(), output->data(), mask->data(), rand->data(), size, keep_prob, 0);
     
-    cudaDeviceSynchronize(); // Ensure kernels finish before rand is destroyed
+    cudaDeviceSynchronize();
     
     return std::make_tuple(output, mask);
 }
 
-// Dropout Backward
+// dropout反向
 static TensorPtr dropout_backward_wrapper(const TensorPtr& grad_output, const TensorPtr& mask, float dropout_p) {
     if (grad_output->is_cpu()) {
         throw std::runtime_error("Dropout backward not implemented for CPU");

@@ -217,7 +217,7 @@ def save_model(model, model_name, accuracy, save_dir="models"):
         
     print(f"Model saved to {filepath}")
 
-def train_model(model, train_dataset, test_dataset, config, model_name, script_name, augmentation, device="gpu"):
+def train_model(model, train_dataset, test_dataset, config, model_name, augmentation, device="gpu"):
     """
     Generic training loop to reduce boilerplate in example scripts.
     """
@@ -292,7 +292,7 @@ def train_model(model, train_dataset, test_dataset, config, model_name, script_n
         
     # Log
     logger = ExperimentLogger()
-    logger.log(script_name, model_name, augmentation, config, tr_acc, te_acc, total_time, pytorch_time)
+    logger.log(model_name, augmentation, config, tr_acc, te_acc, total_time, pytorch_time)
     
     # Save Model
     save_model(model, model_name, te_acc)
@@ -307,7 +307,7 @@ class ExperimentLogger:
             self.filename = filename
             
         self.headers = [
-            "Timestamp", "Script", "Model", "Augmentation", "Optimizer", "LR", "BatchSize", 
+            "Timestamp", "Model", "Augmentation", "Optimizer", "LR", "BatchSize", 
             "Momentum", "WeightDecay", "Epochs", 
             "Final_TrAcc", "Final_TeAcc", "Total_Time", "Avg_Epoch_Time", 
             "PyTorch_Ref_Epoch_Time", "Speedup(PyTorch/Ours)"
@@ -320,7 +320,7 @@ class ExperimentLogger:
                 writer = csv.writer(f)
                 writer.writerow(self.headers)
 
-    def log(self, script_name, model_name, augmentation, config, final_tr_acc, final_te_acc, total_time, pytorch_ref_epoch_time=None):
+    def log(self, model_name, augmentation, config, final_tr_acc, final_te_acc, total_time, pytorch_ref_epoch_time=None):
         epochs = config.get('epochs', 1)
         avg_epoch_time = total_time / epochs if epochs > 0 else 0
         
@@ -335,7 +335,6 @@ class ExperimentLogger:
 
         row = [
             time.strftime("%Y-%m-%d %H:%M:%S"),
-            script_name,
             model_name,
             augmentation,
             config.get('optimizer', 'SGD'),

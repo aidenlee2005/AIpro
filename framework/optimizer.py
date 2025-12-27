@@ -7,9 +7,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../build"))
 import py_tensor
 
 class Parameter(TensorFull):
-    """
-    标记类，用于指示该 Tensor 是一个可学习的参数。
-    """
+    #标记类，用于指示该 Tensor 是一个可学习的参数。
     pass
 
 class Module:
@@ -88,7 +86,6 @@ class SGD(Optimizer):
             if p.grad is None:
                 continue
             
-            # Use cached_data directly if available to avoid unnecessary computation
             if p.cached_data is not None:
                 params.append(p.cached_data)
             else:
@@ -101,7 +98,6 @@ class SGD(Optimizer):
             
             if self.momentum > 0:
                 if i not in self.u:
-                    # Initialize velocity with zeros
                     self.u[i] = Tensor(np.zeros(p.shape, dtype=np.float32), device=p.device)
                 
                 if self.u[i].cached_data is not None:
@@ -278,30 +274,6 @@ class ReLU(Module):
     def forward(self, x):
         return x.relu()
 
-class Sequential(Module):
-    def __init__(self, *modules):
-        super().__init__()
-        self.modules = modules
-        
-    def forward(self, x):
-        for module in self.modules:
-            x = module(x)
-        return x
-    
-    def parameters(self):
-        params = []
-        for module in self.modules:
-            params.extend(module.parameters())
-        return params
-    
-    def train(self):
-        for module in self.modules:
-            module.train()
-            
-    def eval(self):
-        for module in self.modules:
-            module.eval()
-
 class CrossEntropyLoss(Module):
     def forward(self, input, target):
         return input.cross_entropy(target)
@@ -336,3 +308,56 @@ class GlobalAvgPool(Module):
     def forward(self, x):
         return ops.global_avg_pool(x)
 
+
+class Sequential(Module):
+    def __init__(self, *modules):
+        super().__init__()
+        self.modules = []
+        
+        # 自动融合 Conv2d + ReLU
+        i = 0
+        while i < len(modules):
+            current_module = modules[i]
+            if i + 1 < len(modules):
+                next_module = modules[i+1]
+                if isinstance(current_module, Conv2d) and isinstance(next_module, ReLU):
+                    # 发现 Conv2d + ReLU 组合，替换为 ConvReLU
+                    fused_module = ConvReLU(
+                        in_channels=current_module.in_channels,
+                        out_channels=current_module.out_channels,
+                        kernel_size=current_module.kernel_size,
+                        stride=current_module.stride,
+                        padding=current_module.padding,
+                        bias=(current_module.bias is not None),
+                        device=current_module.weight.device,
+                        dtype=current_module.weight.dtype
+                    )
+                    # 复制权重和偏置
+                    fused_module.weight = current_module.weight
+                    fused_module.bias = current_module.bias
+                    
+                    self.modules.append(fused_module)
+                    i += 2 # 跳过下一个 ReLU
+                    continue
+            
+            self.modules.append(current_module)
+            i += 1
+        
+    def forward(self, x):
+        for module in self.modules:
+            x = module(x)
+        return x
+    
+    def parameters(self):
+        params = []
+        for module in self.modules:
+            params.extend(module.parameters())
+        return params
+    
+    def train(self):
+        for module in self.modules:
+            module.train()
+            
+    def eval(self):
+        for module in self.modules:
+            module.eval()

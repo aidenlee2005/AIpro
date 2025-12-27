@@ -71,6 +71,50 @@ class VGG_Custom(nn.Module):
         x = self.classifier(x)
         return x
 
+class VGG_Wide(nn.Module):
+    def __init__(self, dropout_p=0.5):
+        super().__init__()
+        self.features = nn.Sequential(
+            # Block 1
+            nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2), # 32 -> 16
+
+            # Block 2
+            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2), # 16 -> 8
+
+            # Block 3
+            nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2), # 8 -> 4
+        )
+        self.classifier = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(256 * 4 * 4, 512),
+            nn.ReLU(inplace=True),
+            nn.Dropout(dropout_p),
+            nn.Linear(512, 10)
+        )
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.classifier(x)
+        return x
+
 class ResidualBlock_Custom(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
@@ -199,6 +243,8 @@ def run_pytorch_benchmark(model_name, batch_size=64, device='cuda'):
         model = SimpleCNN()
     elif model_name == 'VGG' or model_name == 'FusedVGG' or model_name == 'VGG_Opt':
         model = VGG_Custom()
+    elif model_name == 'VGG_Wide':
+        model = VGG_Wide()
     elif model_name == 'ResNet':
         model = ResNet_Custom()
     else:

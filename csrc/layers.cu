@@ -376,6 +376,7 @@ void col2im(float* grad_col, float* grad_input,
         batch_size, in_channels, height, width);
 }
 
+// cuDNN集成后：
 void forward_conv2d(float* input, float* output, float* filter,
                 int batch_size, int out_channels, int in_channels, int height, int width,
                 cudaStream_t stream){
@@ -454,6 +455,7 @@ void forward_conv2d(float* input, float* output, float* filter,
     }
 }
 
+// cuDNN集成后：
 void backward_conv2d(float* input, float* filter,
         int batch_size, int out_channels, int in_channels, int height, int width,
         float* grad_input, float* grad_output, float* grad_filter,
@@ -848,21 +850,15 @@ __global__ void batch_sgd_update_kernel(float* params, const float* grads, float
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < total_size) {
         float g = grads[idx];
-        
-        // Apply weight decay first
         if (weight_decay != 0.0f) {
             g += params[idx] * weight_decay;
         }
-        
         if (momentum != 0.0f && velocities != nullptr) {
-            // Update velocity: v = v * momentum + g
             float v_old = velocities[idx];
             float v_new = v_old * momentum + g;
             velocities[idx] = v_new;
-            // Update parameter: param -= lr * v
             params[idx] -= lr * v_new;
         } else {
-            // No momentum: param -= lr * g
             params[idx] -= lr * g;
         }
     }
@@ -903,7 +899,6 @@ void conv2d_relu_forward_gpu(const float* input, const float* filter, const floa
     cudnnSetConvolution2dDescriptor(conv_desc, padding, padding, stride, stride, 1, 1,
                                     CUDNN_CROSS_CORRELATION, CUDNN_DATA_FLOAT);
 
-    // Enable Tensor Cores
     cudnnSetConvolutionMathType(conv_desc, CUDNN_TENSOR_OP_MATH);
 
     int out_n, out_c, out_h, out_w;
@@ -913,10 +908,8 @@ void conv2d_relu_forward_gpu(const float* input, const float* filter, const floa
     cudnnSetTensor4dDescriptor(output_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
                                out_n, out_c, out_h, out_w);
 
-    // Activation Descriptor for ReLU
     cudnnSetActivationDescriptor(activation_desc, CUDNN_ACTIVATION_RELU, CUDNN_NOT_PROPAGATE_NAN, 0.0);
 
-    // Find best algorithm with caching
     using AlgoKey = std::tuple<int, int, int, int, int, int, int>;
     static std::map<AlgoKey, cudnnConvolutionFwdAlgo_t> algo_cache;
     AlgoKey key = std::make_tuple(batch_size, out_channels, in_channels, height, width, kernel_size, stride);
@@ -945,7 +938,6 @@ void conv2d_relu_forward_gpu(const float* input, const float* filter, const floa
 
     float alpha = 1.0f, beta = 0.0f;
     
-    // Bias
     cudnnSetTensor4dDescriptor(bias_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, 1, out_channels, 1, 1);
     
     const float* d_bias = bias;
@@ -999,7 +991,6 @@ __global__ void nchw_to_nhwc_relu_mask_kernel(const float* bchw, const float* ou
     bhwc[outcol_idx] = val;
 }
 
-// Fused Conv2D + ReLU backward function
 void conv2d_relu_backward_gpu(const float* grad_output, const float* output, 
                              const float* input, const float* filter,
                              float* grad_input, float* grad_filter, float* grad_bias,
@@ -1157,7 +1148,6 @@ void conv2d_relu_backward_gpu(const float* grad_output, const float* output,
                                      &beta, db_desc, grad_bias);
     }
 
-    // Cleanup
     MemoryPool::instance().deallocate(d_conv_output, y_size);
 }
 
@@ -1172,18 +1162,14 @@ __global__ void adam_update_kernel(float* param, const float* grad, float* m, fl
             g += param[idx] * weight_decay;
         }
         
-        // Update biased first moment estimate
         float m_t = m[idx] * beta1 + g * (1.0f - beta1);
         m[idx] = m_t;
         
-        // Update biased second raw moment estimate
         float v_t = v[idx] * beta2 + (g * g) * (1.0f - beta2);
         v[idx] = v_t;
         
-        // Compute bias-corrected first moment estimate
         float m_hat = m_t / (1.0f - powf(beta1, step));
         
-        // Compute bias-corrected second raw moment estimate
         float v_hat = v_t / (1.0f - powf(beta2, step));
         
         // Update parameters
@@ -1407,7 +1393,7 @@ void eltwise_pow_broadcast(const float* a, const float* b, float* out, int size,
 
 // ===========Batchnorm=============
 
-// Pass 1: Compute Mean
+// 算平均值
 __global__ void batch_norm_collect_mean_kernel(
     const float* input, float* mean,
     int batch_size, int channels, int height, int width) {
@@ -1442,7 +1428,7 @@ __global__ void batch_norm_collect_mean_kernel(
     }
 }
 
-// Pass 2: Compute Variance
+// 算方差
 __global__ void batch_norm_collect_variance_kernel(
     const float* input, const float* mean, float* var,
     int batch_size, int channels, int height, int width) {
@@ -1580,9 +1566,8 @@ void batch_norm_forward_training(
         cudnnCreateTensorDescriptor(&y_desc);
         cudnnCreateTensorDescriptor(&bn_desc);
     }
-    // Use default stream (0) or pass stream if available. 
-    // The function signature doesn't have stream, so we use 0.
-    // Ideally we should update signature to take stream.
+
+
     cudnnSetStream(cudnn, 0);
 
     cudnnSetTensor4dDescriptor(x_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
@@ -1590,7 +1575,6 @@ void batch_norm_forward_training(
     cudnnSetTensor4dDescriptor(y_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
                                batch_size, channels, height, width);
     
-    // bn_desc should be 1, C, 1, 1
     cudnnSetTensor4dDescriptor(bn_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT,
                                1, channels, 1, 1);
 
@@ -1740,21 +1724,13 @@ void batch_norm_backward(
 
     float alpha = 1.0f;
     float beta = 0.0f;
-    // For grad_weight and grad_bias, beta=0 means overwrite.
-    // If we want to accumulate, we should set beta=1.
-    // But usually BN backward overwrites grads.
-    // My manual kernel overwrites.
 
-    // Note: cudnnBatchNormalizationBackward requires epsilon.
-    // But it's only used if using CUDNN_BATCHNORM_SPATIAL_PERSISTENT?
-    // Or maybe it uses save_inv_std so epsilon is not needed?
-    // The signature has epsilon.
-    double epsilon = 1e-5; // Should match forward, but here we use saved stats.
+    double epsilon = 1e-5; 
 
     cudnnBatchNormalizationBackward(
         cudnn, CUDNN_BATCHNORM_SPATIAL,
         &alpha, &beta,
-        &alpha, &beta, // alphaDataDiff, betaDataDiff
+        &alpha, &beta,
         x_desc, input,
         dy_desc, grad_output,
         dx_desc, grad_input,

@@ -53,7 +53,7 @@ def train():
         'lr': 0.01,
         'momentum': 0.9,
         'weight_decay': 5e-4,
-        'epochs': 5,
+        'epochs': 50,
         'optimizer': 'SGD'
     }
     
@@ -79,7 +79,7 @@ def train():
     device = "gpu"
     model = FusedVGG(device=device)
 
-    train_model(model, train_dataset, test_dataset, config, model_name, script_name, augmentation, device)
+    train_model(model, train_dataset, test_dataset, config, model_name, augmentation, device)
 
 if __name__ == "__main__":
     train()

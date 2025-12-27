@@ -103,9 +103,11 @@ class Tensor(Value):
 
 ## 4. 数据流动与运行逻辑
 
-### 4.1 前向传播 (Forward Pass)
+### 4.1 z = x + y
 
 以 `z = x + y` 为例：
+
+**前向传播**
 
 1.  **Python 调用**: 用户执行 `z = x + y`。
 2.  **算子分发**: 触发 `Tensor.__add__`，创建 `EWiseAdd` 算子节点。
@@ -119,7 +121,7 @@ class Tensor(Value):
     *   GPU 读取 `x`, `y` 显存，计算结果写入 `z` 的显存（从显存池申请）。
 5.  **图构建**: 返回一个新的 Python `Tensor` `z`，其 `op` 指向 `EWiseAdd`，`inputs` 指向 `x` 和 `y`。
 
-### 4.2 反向传播 (Backward Pass)
+**反向传播**
 
 1.  **触发**: 用户调用 `loss.backward()`。
 2.  **拓扑排序**: `autodiff.py` 对计算图进行逆拓扑排序。
@@ -129,11 +131,36 @@ class Tensor(Value):
     *   例如 `MatMul` 的梯度涉及 `matmul(out_grad, input.T)`。
 4.  **递归执行**: 梯度计算会生成新的计算图节点，这些节点在求值时再次触发前向传播的逻辑（调用 C++ 后端）。
 
-### 4.3 参数更新 (Optimization)
+**参数更新**
 
 1.  **收集参数**: `optimizer.step()` 收集所有 `Parameter` 及其 `.grad`。
 2.  **下沉 C++**: 将参数列表、梯度列表、动量状态列表一次性传入 C++ 函数（如 `py_tensor.adam_step`）。
 3.  **Fused Kernel**: C++ 启动 `adam_update_kernel`，在 GPU 上并行更新所有参数，避免了 Python 循环遍历参数的开销。
+
+
+### 4.2 Sequential 模型的数据流动
+
+当用户定义一个 `nn.Sequential` 模型（如 `model = nn.Sequential(nn.Conv2d(...), nn.ReLU(), nn.Linear(...))`）并启动前向和反向传播时，数据流动如下：
+
+**前向传播过程**：
+1.  **模型调用**: 用户执行 `output = model(input)`，触发 `Sequential.__call__`，进而调用 `Sequential.forward(input)`。
+2.  **模块遍历**: `Sequential.forward` 依次遍历 `self.modules` 列表中的每个子模块（如 `Conv2d`、`ReLU`、`Linear`）。
+3.  **数据传递**: 输入数据 `input` 作为第一个模块的输入，经过 `module(x)` 调用每个模块的 `forward` 方法：
+   - `Conv2d.forward`: 调用 `x.conv2d(self.weight)`，触发 `Conv2D` 算子，数据从 Python 层下沉到 C++ 后端，执行 CUDA 卷积核函数。
+   - `ReLU.forward`: 调用 `x.relu()`，触发 `ReLU` 算子，执行逐元素激活。
+   - `Linear.forward`: 调用 `x @ self.weight`，触发 `MatMul` 算子，执行矩阵乘法。
+4.  **融合优化**: 如果 `Sequential` 检测到 `Conv2d + ReLU` 组合，会自动替换为 `ConvReLU` 模块，调用融合核函数（如 `conv2d_relu_kernel`），减少 Kernel 启动次数。
+5.  **输出返回**: 最终输出经过所有模块后返回，形成完整的计算图，每个中间结果都是 `Tensor` 节点。
+
+**反向传播过程**：
+1.  **梯度触发**: 用户调用 `output.backward()`，`autodiff.py` 对整个计算图进行逆拓扑排序。
+2.  **模块梯度**: 梯度从输出反向流动，通过 `Sequential` 的嵌套结构递归调用每个子模块的梯度计算：
+   - 每个模块的 `gradient` 方法（如 `Conv2D.gradient`）生成新的算子节点，计算输入梯度。
+   - 数据再次下沉到 C++ 后端，执行相应的反向核函数（如卷积梯度）。
+3.  **参数收集**: `Sequential.parameters()` 递归收集所有子模块的参数，用于优化器更新。
+4.  **优化器步骤**: `optimizer.step()` 调用 C++ 的融合更新函数（如 `adam_step`），并行更新所有参数。
+
+这种设计支持模块化组合，数据在 Python 计算图和 C++ 后端之间高效流动，实现自动微分和 GPU 加速。
 
 ---
 
